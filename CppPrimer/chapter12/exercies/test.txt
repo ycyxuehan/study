@@ -1,0 +1,16 @@
+Your enterprise DBAs oversee one of your most valuable assets: the database. 
+They need to plan, design, and deploy new architectures to meet the needs of your applications. 
+They can't do that if they are busy with routine tasks.
+Percona Toolkit is a collection of advanced open source command-line tools, 
+developed and used by the Percona technical staff, 
+that are engineered to perform a variety of MySQL® and MongoDB® server and system tasks that are too difficult or complex to perform manually – freeing your DBAs for work that helps you achieve your business goals.
+Percona Toolkit supports Percona Server for MySQL, MariaDB®, Percona Server for MongoDB and MongoDB.
+Percona Toolkit allows our large, transaction-based customers to make regular schema changes as their 
+business evolves without interrupting their 24x7x365 operations.
+Hany Fahim, co-Founder and CEO of VM Farms
+Supported by Percona Experts
+Whether you’re running a simple database on-premises, or a complex DBaaS for a large enterprise, 
+Percona offers a comprehensive, responsive, and cost-effective support, 
+managed service or consulting plan to help your organization's database deployment succeed.
+With over 1,850,000+ downloads and several years of deployment, 
+Percona Toolkit enables you to automate and assist your DBAs and developers with routine database tasks.
