@@ -26,7 +26,7 @@ weight: 1
     - [替换`Workspace`路径](#substituting-workspace-paths)
     - [替换`Volume`名称和类型](#substituting-volume-names-and-types)
 - [代码示例](#code-examples)
-  - [编译并发布Docker镜像](#building-and-pushing-a-docker-image)
+  - [构建并发布Docker镜像](#building-and-pushing-a-docker-image)
   - [挂在多个`Volumes`](#mounting-multiple-volumes)
   - [挂载`ConfigMap`作为`Volume`资源](#mounting-a-configmap-as-a-volume-source)
   - [使用`Secret`作为环境资源](#using-a-secret-as-an-environment-source)
@@ -220,7 +220,7 @@ steps:
 ```
 
 ### 指定 `Parameters`
-可以像编译标志和自定义名称一样在`Task`执行时提供一些指定参数。 `Parameters`通过相应的`TaskRun`传递给`Task`.
+可以像构建标志和自定义名称一样在`Task`执行时提供一些指定参数。 `Parameters`通过相应的`TaskRun`传递给`Task`.
 
 参数名称:
 
@@ -229,7 +229,7 @@ steps:
 
 例如, `fooIs-Bar_`是合法的参数名, `barIsBa$`或`0banana`则是非法参数名.
 
-每一个声明的参数都有一个可以被设置为`array`或`string`的 `type`字段. 当`task`的整个执行过程中，为任务提供的编译标志的数量各不相同时，`array`非常有用。`type`字段在不指定时，默认设置为`string`。 实参的的值被提供时，它的解析类型会再次和`type`字段验证。
+每一个声明的参数都有一个可以被设置为`array`或`string`的 `type`字段. 当`task`的整个执行过程中，为任务提供的构建标志的数量各不相同时，`array`非常有用。`type`字段在不指定时，默认设置为`string`。 实参的的值被提供时，它的解析类型会再次和`type`字段验证。
 
 下面的例子展示了如何在`Task`中使用`Parameters`. 例子的`Task`声明了名为`flags`(`array`类型)和`someURL` (`string`类型)的两个字段，并在`steps.args`列表中使用了他们。 可以使用通配符`*`展开一个`array`的所有值. 例子中, `flags` 包含通配符: `$(params.flags[*])`.
 
@@ -434,7 +434,7 @@ steps:
 `Sidecars`在`Task`运行之前启动并在`Task`完成之后删除。
 更多信息, 参考[`Sidecars` in `TaskRuns`](taskruns.md#specifying-sidecars).
 
-下面的例子中,`Step`使用了Docker-in-Docker `Sidecar` 来编译一个镜像:
+下面的例子中,`Step`使用了Docker-in-Docker `Sidecar` 来构建一个镜像:
 
 ```yaml
 steps:
@@ -568,7 +568,7 @@ $(workspaces.myworkspace.volume)
 
 学习下面的示例代码更好的理解如何创建`Tasks`:
 
-- [编译并发布一个镜像](#编译并发布一个镜像)
+- [构建并发布一个镜像](#构建并发布一个镜像)
 - [挂载多个`Volumes`](#mounting-multiple-volumes)
 - [挂载`ConfigMap`作为`Volume`资源](#mounting-a-configmap-as-a-volume-source)
 - [使用`Secret` 作为环境变量](#using-a-secret-as-an-environment-source)
@@ -576,9 +576,9 @@ $(workspaces.myworkspace.volume)
 
 小贴士: 简单的附加代码[示例集合](https://github.com/tektoncd/pipeline/tree/master/examples)
 
-### 编译并发布一个镜像
+### 构建并发布一个镜像
 
-下面的示例`Task`使用`Dockerfile`编译并发布一个镜像.
+下面的示例`Task`使用`Dockerfile`构建并发布一个镜像.
 
 **注意:** 在集群使用`docker build`创建镜像非常**不安全**并且仅用于演示目的。使用[kaniko](https://github.com/GoogleContainerTools/kaniko)代替这个操作。
 
@@ -766,7 +766,7 @@ spec:
 
 ### 检查文件结构
 
-一个常见的错误是源自配置`Task`的数据中未知的位置, 最常见的部分是，文件被摄入且`Task`的输出应该在`/workspace`目录，但是具体情况可能有所不同。检查`Task`配置文件结构，添加一个将储存在`/workspace`的每个文件都输出到编译日志中的step。例如：
+一个常见的错误是源自配置`Task`的数据中未知的位置, 最常见的部分是，文件被摄入且`Task`的输出应该在`/workspace`目录，但是具体情况可能有所不同。检查`Task`配置文件结构，添加一个将储存在`/workspace`的每个文件都输出到构建日志中的step。例如：
 
 ```yaml
 - name: build-and-push-1

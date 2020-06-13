@@ -26,12 +26,12 @@ weight: 2
 - [代码示例](#code-examples)
   - [示例`TaskRun` 和被引用的`Task`](#example-taskrun-with-a-referenced-task)
   - [示例`TaskRun`和增强的`Task`](#example-taskrun-with-an-embedded-task)
-  - [恢复`Task`](#reusing-a-task)
+  - [重复使用`Task`](#reusing-a-task)
   - [使用自定义`ServiceAccount`证书](#using-custom-serviceaccount-credentials)
 
 # 概览
 
-`TaskRun`在集群中实例化并运行[`Task`](tasks.md)。`Task`指定一个或多个执行指定部分编译工作的容器并运行的`Steps`。 `TaskRun`按顺序执行这些`Task`中的`Steps`直到所有`Steps` 执行完成或发生错误。
+`TaskRun`在集群中实例化并运行[`Task`](tasks.md)。`Task`指定一个或多个执行指定部分构建工作的容器并运行的`Steps`。 `TaskRun`按顺序执行这些`Task`中的`Steps`直到所有`Steps` 执行完成或发生错误。
 
 ## 配置 `TaskRun`
 
@@ -182,9 +182,7 @@ spec:
 
 ### 指定 `Workspaces`
 
-If a `Task` specifies one or more `Workspaces`, you must map those `Workspaces` to
-the corresponding physical volumes in your `TaskRun` definition. For example, you
-can map a `PersistentVolumeClaim` volume to a `Workspace` as follows:
+如果一个`Task`指定了一个或多个`Workspaces`, 必须在`TaskRun`中为他们挂载对应物理卷。例如，可以像下面那样为`workspace`挂载一个`persistentVolumeClaim`卷：
 
 ```yaml
 workspaces:
@@ -194,12 +192,12 @@ workspaces:
   subPath: my-subdir
 ```
 
-For more information, see the following topics:
-- For information mapping `Workspaces` to `Volumes`, see [Using `Workspace` variables in `TaskRuns`](workspaces.md#using-workspace-variables-in-taskruns).
-- For a list of supported `Volume` types, see [Specifying `VolumeSources` in `Workspaces`](workspaces.md#specifying-volumesources-in-workspaces).
-- For an end-to-end example, see [`Workspaces` in a `TaskRun`](../examples/v1beta1/taskruns/workspace.yaml).
+更多信息，参考以下主题:
+- 挂载`Workspaces`到`Volumes`, 查看 [Using `Workspace` variables in `TaskRuns`](workspaces.md#using-workspace-variables-in-taskruns).
+- 受支持的`Volume` 类型列表, 查看 [Specifying `VolumeSources` in `Workspaces`](workspaces.md#specifying-volumesources-in-workspaces).
+- 端到端示例, 查看 [`Workspaces` in a `TaskRun`](../examples/v1beta1/taskruns/workspace.yaml).
 
-### Specifying `Sidecars`
+### 指定 `Sidecars`
 
 A `Sidecar` is a container that runs alongside the containers specified
 in the `Steps` of a task to provide auxiliary support to the execution of
@@ -265,7 +263,7 @@ set for the target [`namespace`](https://kubernetes.io/docs/concepts/overview/wo
 
 For more information, see [`ServiceAccount`](auth.md).
 
-## Monitoring execution status
+## 监控运行状态
 
 As your `TaskRun` executes, its `status` field accumulates information on the execution of each `Step`
 as well as the `TaskRun` as a whole. This information includes start and stop times, exit codes, the
@@ -364,20 +362,18 @@ spec:
   status: "TaskRunCancelled"
 ```
 
-## Code examples
+## 代码示例
 
-To better understand `TaskRuns`, study the following code examples:
+为更好的理解 `TaskRuns`, 学习以下示例:
 
-- [Example `TaskRun` with a referenced `Task`](#example-taskrun-with-a-referenced-task)
-- [Example `TaskRun` with an embedded `Task`](#example-taskrun-with-an-embedded-task)
-- [Example of reusing a `Task`](#example-of-reusing-a-task)
-- [Example of specifying a `ServiceAccount`](#example-of-specifying-a-service-account)
+- [`TaskRun`使用引用的`Task`](#example-taskrun-with-a-referenced-task)
+- [`TaskRun`使用内嵌的`Task`](#example-taskrun-with-an-embedded-task)
+- [重复使用`Task`](#example-of-reusing-a-task)
+- [指定`ServiceAccount`](#example-of-specifying-a-service-account)
 
 ### Example `TaskRun` with a referenced `Task`
 
-In this example, a `TaskRun` named `read-repo-run` invokes and executes an existing
-`Task` named `read-task`. This `Task` uses a git input resource that the `TaskRun`
-references as `go-example-git`.
+在这个示例中，名为`read-repo-run`的`TaskRun`调用并运行了一个已存在的名为`read-task`的`Task`。这个`Task`使用一个被`TaskRun`引用为`go-example-git`的git类型输入资源(`PipelineResource`)。
 
 ```yaml
 apiVersion: tekton.dev/v1alpha1
@@ -418,10 +414,9 @@ spec:
           name: go-example-git
 ```
 
-### Example `TaskRun` with an embedded `Task`
+### `TaskRun`使用内嵌`Task`
 
-In this example, a `TaskRun` named `build-push-task-run-2` directly executes
-a `Task` from its definition embedded in the `TaskRun's` `taskSpec` field:
+这个例子中，一个名为`build-push-task-run-2`的`TaskRun`直接运行了`taskSpec`字段的内嵌定义的`Task`:
 
 ```yaml
 apiVersion: tekton.dev/v1alpha1
@@ -462,8 +457,7 @@ spec:
           - --destination=gcr.io/my-project/gohelloworld
 ```
 
-You can also embed resource definitions in your `TaskRun`. In the example below, a git resource
-definition provides input for the `TaskRun` named `read-repo`:
+也可以在`TaskRun`中使用内嵌的资源定义. 下面的例子中，名为`read-repo`的 `TaskRun`提供了一个内嵌的git类型资源:
 
 ```yaml
 apiVersion: tekton.dev/v1beta1
@@ -483,15 +477,12 @@ spec:
               value: https://github.com/pivotal-nader-ziada/gohelloworld
 ```
 
-### Reusing a `Task`
+### 重复使用 `Task`
 
-The following example illustrates the reuse of the same `Task`. Below, you can see
-several `TaskRuns` that instantiate a `Task` named `dockerfile-build-and-push`. The
-`TaskRuns` reference different `Resources` as their inputs.
-See [Building and pushing a Docker image](tasks.md#building-and-pushing-a-docker-image)
-for the full definition of this example `Task.`
+下面的例子说明了如何复用 `Task`，接下来，会有一系列的`TaskRuns`实例化一个名为`dockerfile-build-and-push`的`Task`
+`TaskRuns` 引用不同的 `Resources` 作为它们的输入。示例`Task.`的完整定义，参考 [构建和发布一个Docker镜像](tasks.md#building-and-pushing-a-docker-image)
 
-This `TaskRun` builds `mchmarny/rester-tester`:
+`TaskRun` 构建 `mchmarny/rester-tester`:
 
 ```yaml
 # This is the referenced PipelineResource
@@ -519,7 +510,7 @@ spec:
           name: mchmarny-repo
 ```
 
-This `TaskRun` builds the `wget` builder from `googlecloudplatform/cloud-builder`:
+`TaskRun` 从`googlecloudplatform/cloud-builder`构建`wget` builder:
 
 ```yaml
 # This is the referenced PipelineResource
@@ -550,7 +541,7 @@ spec:
           name: cloud-builder-repo
 ```
 
-This `TaskRun` builds the `docker` builder from `googlecloudplatform/cloud-builder` with `17.06.1`:
+`TaskRun`从`googlecloudplatform/cloud-builder`的`17.06.1`分支构建 `docker` builder:
 
 ```yaml
 # This is the referenced PipelineResource
@@ -583,9 +574,9 @@ spec:
           name: cloud-builder-repo
 ```
 
-### Using custom `ServiceAccount` credentials
+### 使用自定义`ServiceAccount`证书
 
-The example below illustrates how to specify a `ServiceAccount` to access a private `git` repository:
+下面的示例展示了如何使用一个指定的`ServiceAccount`来访问私有的`git`仓库：
 
 ```yaml
 apiVersion: tekton.dev/v1beta1
@@ -605,8 +596,7 @@ spec:
       args: ["-c", "cat README.md"]
 ```
 
-In the above code snippet, `serviceAccountName: test-build-robot-git-ssh` references the following
-`ServiceAccount`:
+上面的代码片段中, `serviceAccountName: test-build-robot-git-ssh`引用下面的`ServiceAccount`:
 
 ```yaml
 apiVersion: v1
@@ -617,7 +607,7 @@ secrets:
   - name: test-git-ssh
 ```
 
-And `name: test-git-ssh` references the following `Secret`:
+`name: test-git-ssh`引用下面的`Secret`:
 
 ```yaml
 apiVersion: v1
@@ -636,7 +626,7 @@ data:
   known_hosts: Z2l0aHViLmNvbSBzc2g.....[example]
 ```
 
-### Running Step Containers as a Non Root User
+### 以非root用户运行Step容器
 
 All steps that do not require to be run as a root user should make use of TaskRun features to 
 designate the container for a step runs as a user without root permissions. As a best practice, 
