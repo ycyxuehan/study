@@ -1,0 +1,48 @@
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: build-app
+spec:
+  inputs:
+    resources:
+      - name: tekton-demo
+        type: git
+    params:
+      - name: pathToDockerFile
+        description: The path to the dockerfile to build
+        default: /workspace/tekton-demo/Dockerfile
+      - name: pathToContext
+        description: The build context used by Kaniko
+        default: /workspace/tekton-demo
+      - name: pathToYaml
+        description: The path to teh manifest to apply
+  outputs:
+    resources:
+      - name: builtImage
+        type: image
+  steps:
+    - name: build-mvn-package
+      image: maven:3.6.3-jdk-11-slim
+      workingDir: /workspace/tekton-demo
+      command:
+        - mvn
+      args:
+        - package
+        - -B
+        - -DskipTests
+    - name: build-docker-image
+      image: projectnebula/kaniko:latest
+      command:
+        - kaniko
+      args:
+        - --dockerfile=${inputs.params.pathToDockerFile}
+        - --destination=${outputs.resources.builtImage.url}
+        - --context=${inputs.params.pathToContext}
+    - name: deploy-app
+      image: bitnami/kubectl:latest
+      command:
+        - kubectl
+      args:
+        - apply
+        - -f
+        - ${inputs.params.pathToYaml}

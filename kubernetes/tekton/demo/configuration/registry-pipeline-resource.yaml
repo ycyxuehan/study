@@ -1,0 +1,9 @@
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineResource
+metadata:
+  name: registry-pipeline-resource
+spec:
+  type: image
+  params:
+    - name: url
+      value: registry.cn-shenzhen.aliyuncs.com/bing89/tekton-demo

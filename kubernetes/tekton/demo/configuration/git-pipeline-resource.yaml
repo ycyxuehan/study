@@ -1,0 +1,12 @@
+
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineResource
+metadata:
+  name: git-pipeline-resource
+spec:
+  type: git
+  params:
+    - name: revision
+      value: master ##代码分支
+    - name: url
+      value: git@git.smartfeng.com:oper-deploy/tekton-demo.git ##代码仓库

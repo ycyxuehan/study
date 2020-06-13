@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tekton-basic-user-pass-registry
+  annotations:
+    tekton.dev/docker-0: https://registry.cn-hangzhou.aliyuncs.com
+type: kubernetes.io/basic-auth
+stringData:
+  username: demo@1835672495197629.onaliyun.com
+  password: viNymTPHqUnDZJSb5Z336x}#iVyv!Eo|
