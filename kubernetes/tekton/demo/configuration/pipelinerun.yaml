@@ -1,0 +1,22 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: plr-demo
+spec:
+  serviceAccountName: build-bot
+  pipelineRef:
+    name: pl-demo
+  resources:
+    - name: tekton-demo
+      resourceRef:
+        name: git-pipeline-resource
+    - name: builtImage
+      resourceRef:
+        name: registry-pipeline-resource
+  params:
+    - name: pathToDockerFile
+      value: /workspace/tekton-demo/Dockerfile
+    - name: pathToContext
+      value: /workspace/tekton-demo
+    - name: pathToYaml
+      value: /workspace/tekton-demo/tekton-demo.yaml

@@ -287,10 +287,8 @@ tasks:
     \
         (guarded task C) — (task D)
 ```
-条件资源也可以使用 [`from`](#using-the-from-parameter) 字段说明它期望使用前一个任务的输出作为输入。
-As with regular Pipeline Tasks, using `from`
-implies ordering --  if task has a condition that takes in an output resource from
-another task, the task producing the output resource will run first:
+
+条件资源也可以使用 [`from`](#using-the-from-parameter) 字段说明它期望使用前一个任务的输出作为输入。与常规操作流任务一样，使用`from`表明执行顺序--如果一个任务有一个使用其他任务输出资源作为条件，那么产出结果的任务最先运行:
 
 ```yaml
 tasks:
@@ -312,16 +310,13 @@ tasks:
       name: echo-hello
 ```
 
-### Configuring the failure timeout
+### 配置失败超时
 
-You can use the `Timeout` field in the `Task` spec within the `Pipeline` to set the timeout
-of the `TaskRun` that executes that `Task` within the `PipelineRun` that executes your `Pipeline.`
-The `Timeout` value is a `duration` conforming to Go's [`ParseDuration`](https://golang.org/pkg/time/#ParseDuration)
-format. For example, valid values are `1h30m`, `1h`, `1m`, and `60s`. 
+可以使用在`Pipeline`的`Task`配置中的`Timeout`字段配置运行`Pipeline`的`PipelineRun`中的运行`Task`的`TaskRun`的超时时间。`Timeout`是一个遵从Go语言[`ParseDuration`](https://golang.org/pkg/time/#ParseDuration)格式的`duration`。例如：`1h30m`, `1h`, `1m`, 和 `60s` 都是合法的值。
 
-**Note:** If you do not specify a `Timeout` value, Tekton instead honors the timeout for the [`PipelineRun`](pipelineruns.md#configuring-a-pipelinerun).
+**注意:** 如果没有指定`Timeout` 值, Tekton尊重[`PipelineRun`](pipelineruns.md#configuring-a-pipelinerun)的超时时间。
 
-In the example below, the `build-the-image` `Task` is configured to time out after 90 seconds:
+下面的例子中, `build-the-image` `Task` 配置了90秒的超时时间:
 
 ```yaml
 spec:
@@ -332,15 +327,11 @@ spec:
       Timeout: "0h1m30s"
 ```
 
-### Configuring execution results at the `Task` level
+### 配置`Task`级别的执行结果
 
-Tasks can emit [`Results`](tasks.md#storing-execution-results) while they execute. You can
-use these `Results` values as parameter values in subsequent `Tasks` within your `Pipeline`
-through [variable substitution](variables.md#variables-available-in-a-pipeline). Tekton infers the
-`Task` order so that the `Task` emitting the referenced `Results` values executes before the
-`Task` that consumes them. 
+任务在执行时可以发出他们的[`Results`](tasks.md#storing-execution-results)。可以在`Pipeline`中随后的`Tasks`里通过[变量替换](variables.md#variables-available-in-a-pipeline)以参数值的方式使用这些`Results`。Tekton会推断任务顺序，因此`Task`会在 `Results` 被消费之前执行并发出。
 
-In the example below, the result of the `previous-task-name` `Task` is declared as `bar-result`:
+下面的例子中, `previous-task-name` `Task` 的结果声明为 `bar-result`:
 
 ```yaml
 params:
@@ -348,15 +339,13 @@ params:
     value: "$(tasks.previous-task-name.results.bar-result)"
 ```
 
-For an end-to-end example, see [`Task` `Results` in a `PipelineRun`](../examples/v1beta1/pipelineruns/task_results_example.yaml).
+了解端对端示例, 参考 [`Task` `Results` in a `PipelineRun`](../examples/v1beta1/pipelineruns/task_results_example.yaml).
 
-## Configuring execution results at the `Pipeline` level
+## 配置 `Pipeline` 级别执行结果
 
-You can configure your `Pipeline` to emit `Results` during its execution as references to
-the `Results` emitted by each `Task` within it. 
+可以配置`Pipeline`在执行期间发出作为其包含的`Task`发出结果的引用的`Results`。
 
-In the example below, the `Pipeline` specifies a `results` entry with the name `sum` that
-references the `Result` emitted by the `second-add` `Task`.
+下面的例子中, `Pipeline`指定一个名为`sum`的`results`入口，`sum` 引用`second-add` `Task`发出的结果。
 
 ```yaml
   results:
@@ -365,22 +354,19 @@ references the `Result` emitted by the `second-add` `Task`.
       value: $(tasks.second-add.results.sum)
 ```
 
-For an end-to-end example, see [`Results` in a `PipelineRun`](../examples/v1beta1/pipelineruns/pipelinerun-results.yaml).
+了解端对端示例, 参考 [`Results` in a `PipelineRun`](../examples/v1beta1/pipelineruns/pipelinerun-results.yaml).
 
-## Configuring the `Task` execution order
+## 配置 `Task` 执行顺序
 
-You can connect `Tasks` in a `Pipeline` so that they execute in a Directed Acyclic Graph (DAG).
-Each `Task` in the `Pipeline` becomes a node on the graph that can be connected with an edge
-so that one will run before another and the execution of the `Pipeline` progresses to completion
-without getting stuck in an infinite loop.
+可以在`Pipeline`中连接`Tasks`，因此他们在一个有向无环图中执行。`Pipeline`中的每一个任务都会成为图中一个可以被边缘连接的节点，因此即便是某一个`Task`在另一个之前执行，它们也不会陷入无限循环。
 
-This is done using:
+这是因为使用下面配置:
 
 - [`from`](#using-the-from-parameter) clauses on the [`PipelineResources`](resources.md) used by each `Task`
 - [`runAfter`](#using-the-runafter-parameter) clauses on the corresponding `Tasks`
 - By linking the [`results`](#configuring-execution-results-at-the-pipeline-level) of one `Task` to the params of another
 
-For example, the `Pipeline` defined as follows
+示例 `Pipeline` 定义：
 
 ```yaml
 - name: lint-repo
@@ -436,7 +422,7 @@ For example, the `Pipeline` defined as follows
           - build-frontend
 ```
 
-executes according to the following graph:
+依据下图来执行:
 
 ```none
         |            |
@@ -450,7 +436,7 @@ build-app  build-frontend
     deploy-all
 ```
 
-In particular:
+特别情况 :
 
 1. The `lint-repo` and `test-app` `Tasks` have no `from` or `runAfter` clauses
    and start executing simultaneously.

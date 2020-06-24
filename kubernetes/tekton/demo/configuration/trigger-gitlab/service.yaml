@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tekton-demo-trigger
+spec:
+  selector:
+    eventlistener: gitlab-listener
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 31180
+  type: NodePort

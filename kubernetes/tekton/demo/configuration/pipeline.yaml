@@ -1,0 +1,21 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: pl-demo
+spec:
+  tasks:
+    - name: build-project-and-create-image
+      taskRef:
+        name: build-app
+      resources:
+        inputs:
+          - name: tekton-demo
+            resource: tekton-demo
+        outputs:
+          - name: builtImage
+            resource: builtImage
+  resources:
+    - name: tekton-demo
+      type: git
+    - name: builtImage
+      type: image

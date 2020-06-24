@@ -1,0 +1,97 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-app
+spec:
+  resources:
+    inputs:
+      - name: tekton-demo
+        type: git
+    outputs:
+      - name: builtImage
+        type: image
+  params:
+    - name: pathToDockerFile
+      description: The path to the dockerfile to build
+      type: string
+      default: /workspace/tekton-demo/Dockerfile
+    - name: pathToContext
+      description: The build context used by Kaniko
+      type: string
+      default: /workspace/tekton-demo
+    - name: pathToYaml
+      description: The path to teh manifest to apply
+      type: string
+      default: /workspace/tekton-demo/tekton-demo.yaml
+    - name: revision
+      type: string
+      default: latest
+  steps:
+    - name: build-mvn-package
+      image: maven:3.6.3-jdk-11-slim
+      workingDir: /workspace/tekton-demo
+      command:
+        - mvn
+      args:
+        - package
+        - -B
+        - -DskipTests
+      volumeMounts:
+        - name: m2-cache
+          mountPath: /root/.m2
+    - name: test-params
+      image: busybox
+      command: 
+        - echo 
+      args: 
+        - --dockerfile=$(params.pathToDockerFile)
+        - --destination=$(resources.outputs.builtImage.url):$(params.revision)
+        - --context=$(params.pathToContext)
+    - name: build-docker-image
+      image: registry.cn-hangzhou.aliyuncs.com/shenshouer/tektoncd-executor:latest
+      args:
+        - --dockerfile=$(params.pathToDockerFile)
+        - --destination=$(resources.outputs.builtImage.url):$(params.revision)
+        - --context=$(params.pathToContext)
+      volumeMounts:
+        - name: ali-registry
+          mountPath: /kaniko/.docker/
+      env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /kaniko/.docker/config.json
+    # - name: deploy-app
+    #   image: bitnami/kubectl:latest
+    #   command:
+    #     - kubectl
+    #   args:
+    #     - apply
+    #     - -f
+    #     - $(params.pathToYaml)
+  volumes:
+    - name: m2-cache
+      hostPath:
+        path:  /root/.m2
+        type: DirectoryOrCreate
+    - name: ali-registry
+      configMap:
+        name: ali-registry
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ali-registry
+data:
+  config.json: |
+    {
+      "auths": {
+        "registry.cn-hangzhou.aliyuncs.com": {
+          "auth": "ZGVtb0AxODM1NjcyNDk1MTk3NjI5Okdvb2QyMDIw"
+        },
+        "registry.cn-shenzhen.aliyuncs.com": {
+          "auth": "NzY2NjE5MDMxQHFxLmNvbTpIZWxsbzIwMjA="
+        }
+      },
+      "HttpHeaders": {
+        "User-Agent": "Docker-Client/19.03.9 (linux)"
+      }
+    }
