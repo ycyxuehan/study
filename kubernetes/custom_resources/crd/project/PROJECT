@@ -1,0 +1,7 @@
+domain: k8s.bing89.com
+repo: k8s.bing89.com/project
+resources:
+- group: batch
+  kind: Project
+  version: v1
+version: "2"

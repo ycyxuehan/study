@@ -1,0 +1,57 @@
+apiVersion: batch.k8s.bing89.com/v1
+kind: Project
+metadata:
+  name: intbee-card
+  namespace: demo
+spec:
+  git: git@git.smartfeng.com:intbee/intbee-cloud-pdm.git
+  buildSpec:
+    createImage: true
+    defaultBranch: test
+    version: "4.6.0"
+    dockerfile: "4.6.0"
+    buildImage: "4.6.0"
+    buildComand: []
+  registrySpec:
+    server: registry.bing89.com
+    namespace: demo
+    secret: registry-bing89
+  template:
+    labels:
+      - env=test
+      - app=intbee-card
+    replicas: 1
+    revisionHistoryLimit: 3
+    namesapce: intbee
+    runEnv: test
+    spec:
+      containers:
+        - name: intbee-card
+          image: registry.bing89.com/demo/intbee-card:sda34ab
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: JAVA_OPTIONS
+              value: -Xms2g -Xmx2g -Dapp.name=intbeecloud-provider-card -Dspring.profiles.active=test -Duser.timezone=GMT+08 -Dserver.port=8080 -Djob.executor.port=9090
+            - name: LANG
+              value: zh_CN.UTF8
+          ports:
+            - containerPort: 8080
+              name: port-api
+            - containerPort: 9090
+              name: port-job
+          volumeMounts:
+            - mountPath: /www/web/app/logs
+              name: intbee-card-log
+          dnsConfig:
+            nameservers:
+              - dns.svc.cluster.local
+            searches:
+              - server.com
+              - internal-intbee.com
+          imagePullSecrets:
+            - name: registry-bing89
+          restartPolicy: Always
+          volumes:
+            - name: intbee-card-log
+              nfs: /www/logs/intbee/provider-card
+              server: 2765d4a8cb-vyn12.cn-shenzhen.nas.aliyuncs.com
