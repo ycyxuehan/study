@@ -11,7 +11,7 @@ init_etcd(){
 [Service]
 ExecStart=
 #  Replace "systemd" with the cgroup driver of your container runtime. The default value in the kubelet is "cgroupfs".
-ExecStart=/usr/bin/kubelet --address=127.0.0.1 --pod-manifest-path=/etc/kubernetes/manifests --cgroup-driver=systemd
+ExecStart=/usr/bin/kubelet --address=127.0.0.1 --pod-manifest-path=/etc/kubernetes/manifests --cgroup-driver=systemd --pod-infra-container-image=registry.bing89.com/kubernetes/pause:3.2
 Restart=always
 EOF
     if [[ -f etc/kubernetes/pki/etcd/ca.crt ]] && [[ -f etc/kubernetes/pki/etcd/ca.key ]];then
@@ -76,7 +76,7 @@ EOF
         scp -r /tmp/kubelet.service.d ${HOST}:/etc/systemd/system/
         scp -r /tmp/${HOST}/* ${HOST}:/tmp
         ssh ${HOST} "systemctl daemon-reload && systemctl restart kubelet"
-        ssh ${HOST} "mv /tmp/pki /etc/kubernetes/"
+        ssh ${HOST} "rsync -ivhPr /tmp/pki /etc/kubernetes/"
         ssh ${HOST} "kubeadm reset -f && kubeadm init phase etcd local --config=/tmp/etcdcfg.yaml"
     done
     echo "cluster init finished. use this command to check cluster status"
