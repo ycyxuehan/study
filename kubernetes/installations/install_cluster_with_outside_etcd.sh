@@ -36,6 +36,7 @@ EOF
         INDEX=$(expr ${INDEX} + 1)
     done
     echo "init_clusters: ${INIT_CLUSTERS}"
+    INDEX=0
     for HOST in ${@};
     do
         if [ ! -d /tmp/${HOST} ];then
@@ -54,12 +55,13 @@ etcd:
         extraArgs:
             initial-cluster: ${INIT_CLUSTERS}
             initial-cluster-state: new
-            name: ${NAME}
+            name: ${NAME_PREFIX}${INDEX}
             listen-peer-urls: https://${HOST}:2380
             listen-client-urls: https://${HOST}:2379
             advertise-client-urls: https://${HOST}:2379
             initial-advertise-peer-urls: https://${HOST}:2380
 EOF
+    INDEX=$(expr ${INDEX} + 1)
     kubeadm init phase certs etcd-server --config=/tmp/${HOST}/etcdcfg.yaml
     kubeadm init phase certs etcd-peer --config=/tmp/${HOST}/etcdcfg.yaml
     kubeadm init phase certs etcd-healthcheck-client --config=/tmp/${HOST}/etcdcfg.yaml
@@ -75,7 +77,8 @@ EOF
     do
         scp -r /tmp/kubelet.service.d ${HOST}:/etc/systemd/system/
         scp -r /tmp/${HOST}/* ${HOST}:/tmp
-        ssh ${HOST} "systemctl daemon-reload && systemctl restart kubelet"
+        #有时候kubelet起不来，sleep 1秒试试
+        ssh ${HOST} "systemctl daemon-reload && sleep 1 && systemctl restart kubelet"
         ssh ${HOST} "kubeadm reset -f && rsync -ivhPr /tmp/pki /etc/kubernetes/"
         ssh ${HOST} "kubeadm init phase etcd local --config=/tmp/etcdcfg.yaml"
     done
