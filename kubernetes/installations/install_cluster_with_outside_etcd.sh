@@ -3,6 +3,7 @@
 init_etcd(){
     echo "init etcd cluster: $@"
     echo "create config files..."
+    kubeadm reset -f
     mkdir /tmp/kubelet.service.d
     cat << EOF > /tmp/kubelet.service.d/20-etcd-service-manager.conf
 [Service]
@@ -39,7 +40,7 @@ EOF
         cat <<EOF >/tmp/${HOST}/etcdcfg.yaml
 apiVersion: "kubeadm.k8s.io/v1beta2"
 kind: ClusterConfiguration
-imageRegistry: registry.bing89.com/kubernetes
+imageRepository: registry.bing89.com/kubernetes
 etcd:
     local:
         serverCertSANs:
@@ -55,10 +56,10 @@ etcd:
             advertise-client-urls: https://${HOST}:2379
             initial-advertise-peer-urls: https://${HOST}:2380
 EOF
-    kubeadm init phase certs etcd-server --config=/tmp/${HOST}/kubeadmcfg.yaml
-    kubeadm init phase certs etcd-peer --config=/tmp/${HOST}/kubeadmcfg.yaml
-    kubeadm init phase certs etcd-healthcheck-client --config=/tmp/${HOST}/kubeadmcfg.yaml
-    kubeadm init phase certs apiserver-etcd-client --config=/tmp/${HOST}/kubeadmcfg.yaml
+    kubeadm init phase certs etcd-server --config=/tmp/${HOST}/etcdcfg.yaml
+    kubeadm init phase certs etcd-peer --config=/tmp/${HOST}/etcdcfg.yaml
+    kubeadm init phase certs etcd-healthcheck-client --config=/tmp/${HOST}/etcdcfg.yaml
+    kubeadm init phase certs apiserver-etcd-client --config=/tmp/${HOST}/etcdcfg.yaml
     cp -R /etc/kubernetes/pki /tmp/${HOST}/
     # 清理不可重复使用的证书
     find /etc/kubernetes/pki -not -name ca.crt -not -name ca.key -type f -delete
