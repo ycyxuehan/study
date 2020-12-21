@@ -4,7 +4,9 @@ init_etcd(){
     echo "init etcd cluster: $@"
     echo "create config files..."
     kubeadm reset -f
-    mkdir /tmp/kubelet.service.d
+    if [ ! -d /tmp/kubelet.service.d ];then
+        mkdir /tmp/kubelet.service.d
+    fi
     cat << EOF > /tmp/kubelet.service.d/20-etcd-service-manager.conf
 [Service]
 ExecStart=
@@ -36,7 +38,9 @@ EOF
     echo "init_clusters: ${INIT_CLUSTERS}"
     for HOST in ${@};
     do
-        mkdir /tmp/${HOST}
+        if [ ! -d /tmp/${HOST} ];then
+            mkdir /tmp/${HOST}
+        fi
         cat <<EOF >/tmp/${HOST}/etcdcfg.yaml
 apiVersion: "kubeadm.k8s.io/v1beta2"
 kind: ClusterConfiguration
@@ -69,11 +73,11 @@ EOF
     echo "configure etcd hosts"
     for HOST in ${@};
     do
-        scp /tmp/kubelet.service.d /etc/systemd/system/
-        scp /tmp/${HOST}/* ${HOST}:~/
+        scp -r /tmp/kubelet.service.d /etc/systemd/system/
+        scp -r /tmp/${HOST}/* ${HOST}:/tmp
         ssh ${HOST} "systemctl daemon-reload && systemctl restart kubelet"
-        ssh ${HOST} "mv ~/pki /etc/kubernetes/"
-        ssh ${HOST} "kubeadm init phase etcd local --config=~/etcdcfg.yaml"
+        ssh ${HOST} "mv /tmp/pki /etc/kubernetes/"
+        ssh ${HOST} "kubeadm init phase etcd local --config=/tmp/etcdcfg.yaml"
     done
     echo "cluster init finished. use this command to check cluster status"
     echo "docker run --rm -it --net host -v /etc/kubernetes:/etc/kubernetes k8s.gcr.io/etcd:3.4.13-0 etcdctl --cert /etc/kubernetes/pki/etcd/peer.crt --key /etc/kubernetes/pki/etcd/peer.key --cacert /etc/kubernetes/pki/etcd/ca.crt --endpoints https://${HOST}:2379 endpoint health --cluster"
