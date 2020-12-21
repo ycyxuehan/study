@@ -73,7 +73,7 @@ EOF
     echo "configure etcd hosts"
     for HOST in ${@};
     do
-        scp -r /tmp/kubelet.service.d /etc/systemd/system/
+        scp -r /tmp/kubelet.service.d ${HOST}:/etc/systemd/system/
         scp -r /tmp/${HOST}/* ${HOST}:/tmp
         ssh ${HOST} "systemctl daemon-reload && systemctl restart kubelet"
         ssh ${HOST} "mv /tmp/pki /etc/kubernetes/"
