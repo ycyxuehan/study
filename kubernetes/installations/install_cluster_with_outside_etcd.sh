@@ -77,7 +77,7 @@ EOF
         scp -r /tmp/${HOST}/* ${HOST}:/tmp
         ssh ${HOST} "systemctl daemon-reload && systemctl restart kubelet"
         ssh ${HOST} "mv /tmp/pki /etc/kubernetes/"
-        ssh ${HOST} "kubeadm init phase etcd local --config=/tmp/etcdcfg.yaml"
+        ssh ${HOST} "kubeadm reset -f && kubeadm init phase etcd local --config=/tmp/etcdcfg.yaml"
     done
     echo "cluster init finished. use this command to check cluster status"
     echo "docker run --rm -it --net host -v /etc/kubernetes:/etc/kubernetes k8s.gcr.io/etcd:3.4.13-0 etcdctl --cert /etc/kubernetes/pki/etcd/peer.crt --key /etc/kubernetes/pki/etcd/peer.key --cacert /etc/kubernetes/pki/etcd/ca.crt --endpoints https://${HOST}:2379 endpoint health --cluster"
