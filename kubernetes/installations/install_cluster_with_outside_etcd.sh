@@ -3,6 +3,7 @@
 init_etcd(){
     echo "init etcd cluster: $@"
     echo "create config files..."
+    mkdir /tmp/kubelet.service.d
     cat << EOF > /tmp/kubelet.service.d/20-etcd-service-manager.conf
 [Service]
 ExecStart=
@@ -23,13 +24,13 @@ EOF
     NAME_PREFIX="infra"
     INDEX=0
     INIT_CLUSTERS=""
-    for i in ${![@]}; do
-        ETCD_HOST=${$@[$i]}
+    for ETCD_HOST in $@; do
         if [ "x${INIT_CLUSTERS}" == "x" ]; then
-            INIT_CLUSTERS="${NAME_PREFIX}${i}=https://${ETCD_HOST}:2380"
+            INIT_CLUSTERS="${NAME_PREFIX}${INDEX}=https://${ETCD_HOST}:2380"
         else
-            INIT_CLUSTERS="${INIT_CLUSTERS},${NAME_PREFIX}${i}=https://${ETCD_HOST}:2380"
+            INIT_CLUSTERS="${INIT_CLUSTERS},${NAME_PREFIX}${INDEX}=https://${ETCD_HOST}:2380"
         fi
+        INDEX=$(expr ${INDEX} + 1)
     done
     echo "init_clusters: ${INIT_CLUSTERS}"
     for HOST in ${@};
