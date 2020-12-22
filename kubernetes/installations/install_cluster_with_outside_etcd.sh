@@ -50,8 +50,12 @@ etcd:
     local:
         serverCertSANs:
         - "${HOST}"
+        - "${CONTROLLER_HOST}"
+        - "${APIHOSTS}
         peerCertSANs:
         - "${HOST}"
+        - "${CONTROLLER_HOST}"
+        - "${APIHOSTS}
         extraArgs:
             initial-cluster: ${INIT_CLUSTERS}
             initial-cluster-state: new
@@ -84,10 +88,10 @@ EOF
         scp -r /tmp/${HOST}/* ${HOST}:/tmp
         ssh ${HOST} "systemctl daemon-reload"
         ssh ${HOST} "kubeadm reset -f && rsync -ivhPr /tmp/pki /etc/kubernetes/"
-        ssh ${HOST} "kubeadm init phase etcd local --config=/tmp/etcdcfg.yaml"
+        ssh ${HOST} "systemctl restart kubelet && kubeadm init phase etcd local --config=/tmp/etcdcfg.yaml"
     done
     echo "cluster init finished. use this command to check cluster status"
-    echo "docker run --rm -it --net host -v /etc/kubernetes:/etc/kubernetes k8s.gcr.io/etcd:3.4.13-0 etcdctl --cert /etc/kubernetes/pki/etcd/peer.crt --key /etc/kubernetes/pki/etcd/peer.key --cacert /etc/kubernetes/pki/etcd/ca.crt --endpoints https://${HOST}:2379 endpoint health --cluster"
+    echo "docker run --rm -it --net host -v /etc/kubernetes:/etc/kubernetes registry.bing89.com/kubernetes/etcd:3.4.13-0 etcdctl --cert /etc/kubernetes/pki/etcd/peer.crt --key /etc/kubernetes/pki/etcd/peer.key --cacert /etc/kubernetes/pki/etcd/ca.crt --endpoints https://${HOST}:2379 endpoint health --cluster"
 }
 
 init_controller(){
@@ -133,8 +137,20 @@ init_network(){
 
 USAGE_EXITS(){
     echo "this is help message."
+    exit 1
 }
 
+check_args(){
+    if [ "x${ETCD_HOSTS}" == "x" ];then
+        USAGE_EXITS
+    fi
+    if [ "x${CONTROLLER_HOST}" == "x" ];then
+        USAGE_EXITS
+    fi
+    if [ "x${APIHOSTS}" == "x" ];then
+        USAGE_EXITS
+    fi
+}
 main(){
     COMMAND=$1
     shift
@@ -158,7 +174,7 @@ main(){
                 ;;
         esac
     done
-    echo "ETCD_HOSTS: $ETCD_HOSTS"
+    check_args
     case ${COMMAND} in
     initetcd)
         init_etcd ${ETCD_HOSTS}
