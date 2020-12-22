@@ -70,7 +70,7 @@ EOF
         # 清理不可重复使用的证书
         find /etc/kubernetes/pki -not -name ca.crt -not -name ca.key -type f -delete
         # 清理不应从此主机复制的证书
-        if [ "x${INDEX}" != "x0" ]
+        if [ "x${INDEX}" != "x0" ];then
             find /tmp/${HOST} -name ca.key -type f -delete
         fi
         INDEX=$(expr ${INDEX} + 1)
@@ -84,7 +84,7 @@ EOF
         scp -r /tmp/${HOST}/* ${HOST}:/tmp
         ssh ${HOST} "systemctl daemon-reload"
         ssh ${HOST} "kubeadm reset -f && rsync -ivhPr /tmp/pki /etc/kubernetes/"
-        ssh ${HOST} "systemctl restart kubelet && kubeadm init phase etcd local --config=/tmp/etcdcfg.yaml"
+        ssh ${HOST} "kubeadm init phase etcd local --config=/tmp/etcdcfg.yaml"
     done
     echo "cluster init finished. use this command to check cluster status"
     echo "docker run --rm -it --net host -v /etc/kubernetes:/etc/kubernetes k8s.gcr.io/etcd:3.4.13-0 etcdctl --cert /etc/kubernetes/pki/etcd/peer.crt --key /etc/kubernetes/pki/etcd/peer.key --cacert /etc/kubernetes/pki/etcd/ca.crt --endpoints https://${HOST}:2379 endpoint health --cluster"
