@@ -61,17 +61,22 @@ etcd:
             advertise-client-urls: https://${HOST}:2379
             initial-advertise-peer-urls: https://${HOST}:2380
 EOF
-    INDEX=$(expr ${INDEX} + 1)
-    kubeadm init phase certs etcd-server --config=/tmp/${HOST}/etcdcfg.yaml
-    kubeadm init phase certs etcd-peer --config=/tmp/${HOST}/etcdcfg.yaml
-    kubeadm init phase certs etcd-healthcheck-client --config=/tmp/${HOST}/etcdcfg.yaml
-    kubeadm init phase certs apiserver-etcd-client --config=/tmp/${HOST}/etcdcfg.yaml
-    cp -R /etc/kubernetes/pki /tmp/${HOST}/
-    # 清理不可重复使用的证书
-    find /etc/kubernetes/pki -not -name ca.crt -not -name ca.key -type f -delete
-    # 清理不应从此主机复制的证书
-    find /tmp/${HOST} -name ca.key -type f -delete
+        
+        kubeadm init phase certs etcd-server --config=/tmp/${HOST}/etcdcfg.yaml
+        kubeadm init phase certs etcd-peer --config=/tmp/${HOST}/etcdcfg.yaml
+        kubeadm init phase certs etcd-healthcheck-client --config=/tmp/${HOST}/etcdcfg.yaml
+        kubeadm init phase certs apiserver-etcd-client --config=/tmp/${HOST}/etcdcfg.yaml
+        cp -R /etc/kubernetes/pki /tmp/${HOST}/
+        # 清理不可重复使用的证书
+        find /etc/kubernetes/pki -not -name ca.crt -not -name ca.key -type f -delete
+        # 清理不应从此主机复制的证书
+        if [ "x${INDEX}" != "x0" ]
+            find /tmp/${HOST} -name ca.key -type f -delete
+        fi
+        INDEX=$(expr ${INDEX} + 1)
     done
+    #复制节点0的证书备用
+    rsync -ivhrP /tmp/${ETCD_HOSTS[0]}/pki/* /etc/kubernetes/pki/
     echo "configure etcd hosts"
     for HOST in ${@};
     do
