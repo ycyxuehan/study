@@ -41,6 +41,8 @@ EOF
     do
         if [ ! -d /tmp/${HOST} ];then
             mkdir /tmp/${HOST}
+        else
+            rm -rf /tmp/${HOST}/*
         fi
         cat <<EOF >/tmp/${HOST}/etcdcfg.yaml
 apiVersion: "kubeadm.k8s.io/v1beta2"
