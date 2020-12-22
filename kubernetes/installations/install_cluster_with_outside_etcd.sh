@@ -53,11 +53,11 @@ etcd:
         serverCertSANs:
         - "${HOST}"
         - "${CONTROLLER_HOST}"
-        - "${APIHOSTS}
+        - "${APIHOSTS}"
         peerCertSANs:
         - "${HOST}"
         - "${CONTROLLER_HOST}"
-        - "${APIHOSTS}
+        - "${APIHOSTS}"
         extraArgs:
             initial-cluster: ${INIT_CLUSTERS}
             initial-cluster-state: new
