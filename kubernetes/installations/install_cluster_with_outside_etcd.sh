@@ -81,8 +81,6 @@ EOF
         fi
         INDEX=$(expr ${INDEX} + 1)
     done
-    #复制节点0的证书备用
-    rsync -ivhrP /tmp/${ETCD_HOSTS[0]}/pki/* /etc/kubernetes/pki/
     echo "configure etcd hosts"
     for HOST in ${@};
     do
@@ -124,12 +122,11 @@ etcd:
         keyFile: /etc/kubernetes/pki/apiserver-etcd-client.key
 
 EOF
-    scp /tmp/kubeadmcfg.yaml ${CONTROLLER_HOST}:/tmp/kubeadmcfg.yaml
-    ssh ${CONTROLLER_HOST} "kubeadm reset -f && mkdir -p /etc/kubernetes/pki/etcd"
-    scp /etc/kubernetes/pki/etcd/ca.crt ${CONTROLLER_HOST}:/etc/kubernetes/pki/etcd/ca.crt
-    scp /etc/kubernetes/pki/apiserver-etcd-client.crt "${CONTROLLER_HOST}":/etc/kubernetes/pki/apiserver-etcd-client.crt
-    scp /etc/kubernetes/pki/apiserver-etcd-client.key "${CONTROLLER_HOST}":/etc/kubernetes/pki/apiserver-etcd-client.key
-    ssh ${CONTROLLER_HOST} "kubeadm init --config /tmp/kubeadmcfg.yaml --upload-certs"
+    kubeadm reset -f
+    scp /tmp/${ETCD_HOSTS[0]}/pki/etcd/ca.crt /etc/kubernetes/pki/etcd/ca.crt
+    scp /tmp/${ETCD_HOSTS[0]}/pki/apiserver-etcd-client.crt /etc/kubernetes/pki/apiserver-etcd-client.crt
+    scp /tmp/${ETCD_HOSTS[0]}/pki/apiserver-etcd-client.key /etc/kubernetes/pki/apiserver-etcd-client.key
+    kubeadm init --config /tmp/kubeadmcfg.yaml --upload-certs
 }
 
 init_network(){
@@ -146,9 +143,9 @@ check_args(){
     if [ "x${ETCD_HOSTS}" == "x" ];then
         USAGE_EXITS
     fi
-    if [ "x${CONTROLLER_HOST}" == "x" ];then
-        USAGE_EXITS
-    fi
+    # if [ "x${CONTROLLER_HOST}" == "x" ];then
+    #     USAGE_EXITS
+    # fi
     if [ "x${APIHOSTS}" == "x" ];then
         USAGE_EXITS
     fi
@@ -156,15 +153,15 @@ check_args(){
 main(){
     COMMAND=$1
     shift
-    while getopts "e:c:n:a:h" arg
+    while getopts "e:n:a:h" arg
     do
         case ${arg} in 
             e)
                 ETCD_HOSTS=${OPTARG//,/ }
                 ;;
-            c)
-                CONTROLLER_HOST=${OPTARG}
-                ;;
+            # c)
+            #     CONTROLLER_HOST=${OPTARG}
+            #     ;;
             n)
                 NETWORK_CNI=${OPTARG}
                 ;;
