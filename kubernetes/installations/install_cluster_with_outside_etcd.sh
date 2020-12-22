@@ -113,6 +113,7 @@ etcd:
         keyFile: /etc/kubernetes/pki/apiserver-etcd-client.key
 EOF
     scp /tmp/kubeadmcfg.yaml ${CONTROLLER_HOST}:/tmp/kubeadmcfg.yaml
+    ssh ${CONTROLLER_HOST} "mkdir -p /etc/kubernetes/pki/etcd"
     scp /etc/kubernetes/pki/etcd/ca.crt ${CONTROLLER_HOST}:/etc/kubernetes/pki/etcd/ca.crt
     scp /etc/kubernetes/pki/apiserver-etcd-client.crt "${CONTROLLER_HOST}":/etc/kubernetes/pki/apiserver-etcd-client.crt
     scp /etc/kubernetes/pki/apiserver-etcd-client.key "${CONTROLLER_HOST}":/etc/kubernetes/pki/apiserver-etcd-client.key
