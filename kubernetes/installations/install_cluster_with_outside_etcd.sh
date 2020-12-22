@@ -90,7 +90,7 @@ init_controller(){
     echo "warning: your kubelet will reset"
     echo "creating kubeadm config file"
     ENDPOINTS="["
-    for ETCD_HOST in ETCD_HOSTS; do
+    for ETCD_HOST in ${ETCD_HOSTS}; do
         if [ "x${ENDPOINTS}" == "x[" ];then
             ENDPOINTS="${ENDPOINTS}\"https://${ETCD_HOST}:2379\""
         else
