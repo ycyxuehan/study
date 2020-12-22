@@ -129,20 +129,19 @@ USAGE_EXITS(){
 }
 
 main(){
+    COMMAND=$1
+    shift
     while getopts "e:c:n:a:h" arg
     do
         case ${arg} in 
             e)
                 ETCD_HOSTS=${OPTARG//,/ }
-                INIT_ETCD=True
                 ;;
             c)
                 CONTROLLER_HOST=${OPTARG}
-                INIT_CONTROLLER=True
                 ;;
             n)
                 NETWORK_CNI=${OPTARG}
-                INIT_NETWORK=True
                 ;;
             a)
                 APIHOSTS=${OPTARG}
@@ -152,16 +151,24 @@ main(){
                 ;;
         esac
     done
-    echo "init_etcd${INIT_ETCD}"
-    if [ "x${INIT_ETCD}" == "xTrue" ];then
+    echo "ETCD_HOSTS: $ETCD_HOSTS"
+    case ${COMMAND} in
+    initetcd)
         init_etcd ${ETCD_HOSTS}
-    fi
-        if [ "x${INIT_CONTROLLER}" == "xTrue" ];then
+        ;;
+    initcontrollplane)
         init_controller ${CONTROLLER_HOST}
-    fi
-        if [ "x${INIT_NETWORK}" == "xTrue" ];then
+        ;;
+    initcni)
         init_network ${NETWORK_CNI}
-    fi
+        ;;
+    help)
+        USAGE_EXITS
+        ;;
+    *)
+        USAGE_EXITS
+        ;;
+    esac
 }
 
 main $@
