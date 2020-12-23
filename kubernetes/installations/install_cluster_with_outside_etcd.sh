@@ -251,6 +251,7 @@ status: {}
 EOF
     for HOST in ${CONTROLLER_HOSTS}
     do
+        ssh ${HOST} "if [ ! -d /etc/haproxy ];then mkdir /etc/haproxy; fi"
         scp /tmp/haproxy.cfg ${HOST}:/etc/haproxy/haproxy.cfg
         scp /tmp/haproxy.yaml  ${HOST}:/etc/kubernetes/manifests/haproxy.yaml
     done
