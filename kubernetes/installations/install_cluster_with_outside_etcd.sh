@@ -157,9 +157,9 @@ init_haproxy(){
     echo 'init haproxy'
     echo 'write haproxy config...'
     APISERVERS=""
-    for HOST in ${CONTROLLER_HOSTS}
     INDEX=1
     PREFIX="k8smaster"
+    for HOST in ${CONTROLLER_HOSTS}
     do
         if [ "x${APISERVERS}" == "x" ];then
             APISERVERS="        server ${PREFIX}${INDEX} ${HOST}:6443 weight 1 maxconn 1000 check inter 2000 rise 2 fall 3\n"
