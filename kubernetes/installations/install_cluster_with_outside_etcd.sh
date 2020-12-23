@@ -4,14 +4,14 @@ init_etcd(){
     echo "init etcd cluster: $@"
     echo "create config files..."
     kubeadm reset -f
-    if [ ! -d /tmp/kubelet.service.d ];then
-        mkdir /tmp/kubelet.service.d
+    if [ ! -d /etc/systemd/system/kubelet.service.d ];then
+        mkdir /etc/systemd/system/kubelet.service.d
     fi
-    cat << EOF > /tmp/kubelet.service.d/20-etcd-service-manager.conf
+    cat << EOF > /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf
 [Service]
 ExecStart=
 #  Replace "systemd" with the cgroup driver of your container runtime. The default value in the kubelet is "cgroupfs".
-ExecStart=/usr/bin/kubelet --address=127.0.0.1 --pod-manifest-path=/etc/kubernetes/manifests --cgroup-driver=systemd --pod-infra-container-image=registry.bing89.com/kubernetes/pause:3.2
+ExecStart=/usr/bin/kubelet --container-runtime=remote --container-runtime-endpoint=unix:///run/containerd/containerd.sock  --address=127.0.0.1 --pod-manifest-path=/etc/kubernetes/manifests --pod-infra-container-image=registry.bing89.com/kubernetes/pause:3.2
 Restart=always
 EOF
     if [[ -f etc/kubernetes/pki/etcd/ca.crt ]] && [[ -f etc/kubernetes/pki/etcd/ca.key ]];then
@@ -45,6 +45,12 @@ EOF
             rm -rf /tmp/${HOST}/*
         fi
         cat <<EOF >/tmp/${HOST}/etcdcfg.yaml
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
+nodeRegistration:
+    criSocket: /run/containerd/containerd.sock
+    name: containerd
+---
 apiVersion: "kubeadm.k8s.io/v1beta2"
 kind: ClusterConfiguration
 imageRepository: registry.bing89.com/kubernetes
@@ -52,12 +58,12 @@ etcd:
     local:
         serverCertSANs:
         - "${HOST}"
-        - "${CONTROLLER_HOST}"
         - "${APIHOSTS}"
+        - "$1"
         peerCertSANs:
         - "${HOST}"
-        - "${CONTROLLER_HOST}"
         - "${APIHOSTS}"
+        - "$1"
         extraArgs:
             initial-cluster: ${INIT_CLUSTERS}
             initial-cluster-state: new
@@ -84,7 +90,7 @@ EOF
     echo "configure etcd hosts"
     for HOST in ${@};
     do
-        scp -r /tmp/kubelet.service.d ${HOST}:/etc/systemd/system/
+        scp -r /etc/systemd/system/kubelet.service.d ${HOST}:/etc/systemd/system/
         scp -r /tmp/${HOST}/* ${HOST}:/tmp
         ssh ${HOST} "systemctl daemon-reload"
         ssh ${HOST} "kubeadm reset -f && rsync -ivhPr /tmp/pki /etc/kubernetes/"
@@ -108,7 +114,23 @@ init_controller(){
     done
     ENDPOINTS="${ENDPOINTS}]"
     echo "etcd end points: ${ENDPOINTS}"
+    APISERVERSANS="["
+    for CONTROLLER_HOST in ${CONTROLLER_HOSTS}
+    do
+        if [ "x${APISERVERSANS}" == "x[" ];then
+            APISERVERSANS="${APISERVERSANS}\"${CONTROLLER_HOST}\""
+        else
+            APISERVERSANS="${APISERVERSANS},\"${CONTROLLER_HOST}\""
+        fi
+    done
+    APISERVERSANS="${APISERVERSANS}]"
     cat <<EOF >/tmp/kubeadmcfg.yaml
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
+nodeRegistration:
+    criSocket: /run/containerd/containerd.sock
+    name: containerd
+---
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
 kubernetesVersion: stable
@@ -120,12 +142,14 @@ etcd:
         caFile: /etc/kubernetes/pki/etcd/ca.crt
         certFile: /etc/kubernetes/pki/apiserver-etcd-client.crt
         keyFile: /etc/kubernetes/pki/apiserver-etcd-client.key
-
+apiServer:
+  certSANs: ${APISERVERSANS}
 EOF
     kubeadm reset -f
-    scp /tmp/${ETCD_HOSTS[0]}/pki/etcd/ca.crt /etc/kubernetes/pki/etcd/ca.crt
-    scp /tmp/${ETCD_HOSTS[0]}/pki/apiserver-etcd-client.crt /etc/kubernetes/pki/apiserver-etcd-client.crt
-    scp /tmp/${ETCD_HOSTS[0]}/pki/apiserver-etcd-client.key /etc/kubernetes/pki/apiserver-etcd-client.key
+    mkdir /etc/kubernetes/pki/etcd/
+    scp /tmp/$1/pki/etcd/ca.crt /etc/kubernetes/pki/etcd/ca.crt
+    scp /tmp/$1/pki/apiserver-etcd-client.crt /etc/kubernetes/pki/apiserver-etcd-client.crt
+    scp /tmp/$1/pki/apiserver-etcd-client.key /etc/kubernetes/pki/apiserver-etcd-client.key
     kubeadm init --config /tmp/kubeadmcfg.yaml --upload-certs
 }
 
@@ -143,9 +167,9 @@ check_args(){
     if [ "x${ETCD_HOSTS}" == "x" ];then
         USAGE_EXITS
     fi
-    # if [ "x${CONTROLLER_HOST}" == "x" ];then
-    #     USAGE_EXITS
-    # fi
+     if [ "x${CONTROLLER_HOSTS}" == "x" ];then
+         USAGE_EXITS
+     fi
     if [ "x${APIHOSTS}" == "x" ];then
         USAGE_EXITS
     fi
@@ -153,15 +177,15 @@ check_args(){
 main(){
     COMMAND=$1
     shift
-    while getopts "e:n:a:h" arg
+    while getopts "c:e:n:a:h" arg
     do
         case ${arg} in 
             e)
                 ETCD_HOSTS=${OPTARG//,/ }
                 ;;
-            # c)
-            #     CONTROLLER_HOST=${OPTARG}
-            #     ;;
+            c)
+                CONTROLLER_HOSTS=${OPTARG//,/ }
+                ;;
             n)
                 NETWORK_CNI=${OPTARG}
                 ;;
@@ -179,7 +203,7 @@ main(){
         init_etcd ${ETCD_HOSTS}
         ;;
     initcontrollplane)
-        init_controller ${CONTROLLER_HOST}
+        init_controller ${ETCD_HOSTS}
         ;;
     initcni)
         init_network ${NETWORK_CNI}
