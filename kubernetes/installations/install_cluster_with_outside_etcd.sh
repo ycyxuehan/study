@@ -112,7 +112,7 @@ init_controller(){
     fi
     echo "creating kubeadm config file"
     ENDPOINTS="["
-    for ETCD_HOST in ${ETCD_HOSTS}; do
+    for ETCD_HOST in ${ETCD_HOSTS[@]}; do
         if [ "x${ENDPOINTS}" == "x[" ];then
             ENDPOINTS="${ENDPOINTS}\"https://${ETCD_HOST}:2379\""
         else
@@ -122,7 +122,7 @@ init_controller(){
     ENDPOINTS="${ENDPOINTS}]"
     echo "etcd end points: ${ENDPOINTS}"
     APISERVERSANS="["
-    for CONTROLLER_HOST in ${CONTROLLER_HOSTS}
+    for CONTROLLER_HOST in ${CONTROLLER_HOSTS[@]}
     do
         if [ "x${APISERVERSANS}" == "x[" ];then
             APISERVERSANS="${APISERVERSANS}\"${CONTROLLER_HOST}\""
@@ -168,12 +168,12 @@ EOF
 init_haproxy(){
     echo 'init haproxy'
     echo 'install pcs'
-    for HOST in ${HA_HOSTS}
+    for HOST in ${HA_HOSTS[@]}
     do
         ssh ${HOST}  "yum install corosync pacemaker pcs fence-agents resource-agents -y && systemctl enable --now pcsd"
     done
     echo 'config pcs'
-    for HOST in ${HA_HOSTS}
+    for HOST in ${HA_HOSTS[@]}
     do
         ssh ${HOST}  "echo ${HAPASSWORD} | passwd --stdin hacluster && pcs cluster auth -u hacluster -p ${HAPASSWORD} ${HA_HOSTS}"
         ssh ${HOST}  "pcs cluster setup --start --name k8s_cluster ${HA_HOSTS}"
@@ -237,9 +237,11 @@ backend apiserver
     option ssl-hello-chk
     balance     roundrobin
 EOF
-for HOST in ${HA_HOSTS}
+INDEX=0
+for HOST in ${HA_HOSTS[@]}
 do
-    echo "        server ${HA_HOSTS} ${HOST}:6443 weight 1 maxconn 1000 check inter 2000 rise 2 fall 3\n" >> /tmp/haproxy.cfg
+    echo "        server ${HOST} ${CONTROLLER_HOSTS[${INDEX}]}:6443 weight 1 maxconn 1000 check inter 2000 rise 2 fall 3\n" >> /tmp/haproxy.cfg
+    INDEX=$(expr ${INDEX} + 1)
 done
 echo "write haproxy pod yaml"
 cat <<EOF >/tmp/haproxy.yaml
@@ -271,7 +273,7 @@ spec:
     name: haproxyconf
 status: {}
 EOF
-    for HOST in ${CONTROLLER_HOSTS}
+    for HOST in ${CONTROLLER_HOSTS[@]}
     do
         ssh ${HOST} "if [ ! -d /etc/haproxy ];then mkdir /etc/haproxy; fi"
         scp /tmp/haproxy.cfg ${HOST}:/etc/haproxy/haproxy.cfg
@@ -284,7 +286,7 @@ init_kube_vip(){
     echo "init kube_vip..."
     echo "exit"
     exit 0
-    for HOST in ${CONTROLLER_HOSTS}
+    for HOST in ${CONTROLLER_HOSTS[@]}
     do
         if [ ! -d /tmp/${HOST}/kube-vip ]; then
             mkdir -p /tmp/${HOST}/kube-vip
@@ -343,7 +345,7 @@ main(){
     case ${COMMAND} in
     etcd)
         # echo ${ETCD_HOSTS[0]}
-        init_etcd ${ETCD_HOSTS}
+        init_etcd ${ETCD_HOSTS[@]}
         ;;
     controllplane)
         init_controller ${ETCD_HOSTS}
