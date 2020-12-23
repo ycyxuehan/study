@@ -1,5 +1,8 @@
 #!/bin/bash
 
+##
+HAPASSWORD="4orLcyKqDFWrmGlQ"
+
 init_etcd(){
     echo "init etcd cluster: $@"
     echo "create config files..."
@@ -134,7 +137,7 @@ nodeRegistration:
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
 kubernetesVersion: stable
-controlPlaneEndpoint: "${APIHOST}:6443"
+controlPlaneEndpoint: "${APIHOST}:8443"
 imageRepository: registry.bing89.com/kubernetes
 etcd:
     external:
@@ -155,6 +158,21 @@ EOF
 
 init_haproxy(){
     echo 'init haproxy'
+    echo 'install pcs'
+    for HOST in ${HA_HOSTS}
+    do
+        ssh ${HOST}  "yum install corosync pacemaker pcs fence-agents resource-agents -y && systemctl enable --now pcsd"
+    done
+    echo 'config pcs'
+    for HOST in ${HA_HOSTS}
+    do
+        ssh ${HOST}  "echo ${HAPASSWORD} | passwd --stdin hacluster && pcs cluster auth -u hacluster -p ${HAPASSWORD} ${HA_HOSTS}"
+        ssh ${HOST}  "pcs cluster setup --start --name k8s_cluster ${HA_HOSTS}"
+        ssh ${HOST}  "pcs cluster enable --all && pcs cluster start  --all && pcs cluster status && pcs status corosync"
+        ssh ${HOST}  "pcs property set stonith-enabled=false && pcs property set no-quorum-policy=ignore && crm_verify -L -V"
+        ssh ${HOST}  "pcs resource create vip ocf:heartbeat:IPaddr2 ip=${APIHOSTS} cidr_netmask=28 op monitor interval=28s"
+    done
+
     echo 'write haproxy config...'
     APISERVERS=""
     INDEX=1
@@ -203,7 +221,7 @@ defaults
 # apiserver frontend which proxys to the masters
 #---------------------------------------------------------------------
 frontend apiserver
-    bind *:6443
+    bind *:8443
     mode tcp
     option tcplog
     default_backend apiserver
@@ -235,7 +253,7 @@ spec:
       httpGet:
         host: localhost
         path: /healthz
-        port: 6443
+        port: 8443
         scheme: HTTPS
     volumeMounts:
     - mountPath: /usr/local/etc/haproxy/haproxy.cfg
@@ -256,6 +274,18 @@ EOF
         scp /tmp/haproxy.yaml  ${HOST}:/etc/kubernetes/manifests/haproxy.yaml
     done
     echo 'init haproxy finished'
+}
+
+init_kube_vip(){
+    echo "init kube_vip..."
+    echo "exit"
+    exit 0
+    for HOST in ${CONTROLLER_HOSTS}
+    do
+        if [ ! -d /tmp/${HOST}/kube-vip ]; then
+            mkdir -p /tmp/${HOST}/kube-vip
+        fi
+    done
 }
 
 init_network(){
@@ -282,7 +312,7 @@ check_args(){
 main(){
     COMMAND=$1
     shift
-    while getopts "c:e:n:a:h" arg
+    while getopts "c:e:n:a:p:h" arg
     do
         case ${arg} in 
             e)
@@ -296,6 +326,9 @@ main(){
                 ;;
             a)
                 APIHOST=${OPTARG}
+                ;;
+            p)
+                HA_HOSTS=${OPTARG//,/ }
                 ;;
             h)
                 USAGE_EXITS
@@ -315,6 +348,9 @@ main(){
         ;;
     haproxy)
         init_haproxy
+        ;;
+    kubevip)
+        init_kube_vip
         ;;
     help)
         USAGE_EXITS
