@@ -156,6 +156,7 @@ EOF
     echo "restore ha pod if exists"
     if [ -f /tmp/haproxy.yaml.backup ];then
         cp /tmp/haproxy.yaml.backup /etc/kubernetes/manifests/haproxy.yaml
+        systemctl restart kubelet
     fi
     mkdir /etc/kubernetes/pki/etcd/
     scp /tmp/$1/pki/etcd/ca.crt /etc/kubernetes/pki/etcd/ca.crt
