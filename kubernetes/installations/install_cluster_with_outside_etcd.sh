@@ -58,11 +58,11 @@ etcd:
     local:
         serverCertSANs:
         - "${HOST}"
-        - "${APIHOSTS}"
+        - "${APIHOST}"
         - "$1"
         peerCertSANs:
         - "${HOST}"
-        - "${APIHOSTS}"
+        - "${APIHOST}"
         - "$1"
         extraArgs:
             initial-cluster: ${INIT_CLUSTERS}
@@ -134,7 +134,7 @@ nodeRegistration:
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
 kubernetesVersion: stable
-controlPlaneEndpoint: "${APIHOSTS}:6443"
+controlPlaneEndpoint: "${APIHOST}:6443"
 imageRepository: registry.bing89.com/kubernetes
 etcd:
     external:
@@ -151,6 +151,110 @@ EOF
     scp /tmp/$1/pki/apiserver-etcd-client.crt /etc/kubernetes/pki/apiserver-etcd-client.crt
     scp /tmp/$1/pki/apiserver-etcd-client.key /etc/kubernetes/pki/apiserver-etcd-client.key
     kubeadm init --config /tmp/kubeadmcfg.yaml --upload-certs
+}
+
+init_haproxy(){
+    echo 'init haproxy'
+    echo 'write haproxy config...'
+    APISERVERS=""
+    for HOST in ${CONTROLLER_HOSTS}
+    INDEX=1
+    PREFIX="k8smaster"
+    do
+        if [ "x${APISERVERS}" == "x" ];then
+            APISERVERS="        server ${PREFIX}${INDEX} ${HOST}:6443 weight 1 maxconn 1000 check inter 2000 rise 2 fall 3\n"
+        else
+            APISERVERS="${APISERVERS}        server ${PREFIX}${INDEX} ${HOST}:6443 weight 1 maxconn 1000 check inter 2000 rise 2 fall 3\n"
+        fi
+        INDEX=$(expr ${INDEX} + 1)
+    done
+    cat <<EOF >/tmp/haproxy.cfg
+# /etc/haproxy/haproxy.cfg
+#---------------------------------------------------------------------
+# Global settings
+#---------------------------------------------------------------------
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    daemon
+
+#---------------------------------------------------------------------
+# common defaults that all the 'listen' and 'backend' sections will
+# use if not designated in their block
+#---------------------------------------------------------------------
+defaults
+    mode                    http
+    log                     global
+    option                  httplog
+    option                  dontlognull
+    option http-server-close
+    option forwardfor       except 127.0.0.0/8
+    option                  redispatch
+    retries                 1
+    timeout http-request    10s
+    timeout queue           20s
+    timeout connect         5s
+    timeout client          20s
+    timeout server          20s
+    timeout http-keep-alive 10s
+    timeout check           10s
+
+#---------------------------------------------------------------------
+# apiserver frontend which proxys to the masters
+#---------------------------------------------------------------------
+frontend apiserver
+    bind *:6443
+    mode tcp
+    option tcplog
+    default_backend apiserver
+
+#---------------------------------------------------------------------
+# round robin balancing for apiserver
+#---------------------------------------------------------------------
+backend apiserver
+    option httpchk GET /healthz
+    http-check expect status 200
+    mode tcp
+    option ssl-hello-chk
+    balance     roundrobin
+${APISERVERS}
+EOF
+echo "write haproxy pod yaml"
+cat <<EOF >/tmp/haproxy.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: haproxy
+  namespace: kube-system
+spec:
+  containers:
+  - image: haproxy:2.1.4
+    name: haproxy
+    livenessProbe:
+      failureThreshold: 8
+      httpGet:
+        host: localhost
+        path: /healthz
+        port: 6443
+        scheme: HTTPS
+    volumeMounts:
+    - mountPath: /usr/local/etc/haproxy/haproxy.cfg
+      name: haproxyconf
+      readOnly: true
+  hostNetwork: true
+  volumes:
+  - hostPath:
+      path: /etc/haproxy/haproxy.cfg
+      type: FileOrCreate
+    name: haproxyconf
+status: {}
+EOF
+    for HOST in ${CONTROLLER_HOSTS}
+    do
+        scp /tmp/haproxy.conf ${HOST}:/etc/haproxy/haproxy.cfg
+        scp /tmp/haproxy.yaml  ${HOST}:/etc/kubernetes/manifests/haproxy.yaml
+    done
+    echo 'init haproxy finished'
 }
 
 init_network(){
@@ -170,7 +274,7 @@ check_args(){
      if [ "x${CONTROLLER_HOSTS}" == "x" ];then
          USAGE_EXITS
      fi
-    if [ "x${APIHOSTS}" == "x" ];then
+    if [ "x${APIHOST}" == "x" ];then
         USAGE_EXITS
     fi
 }
@@ -190,7 +294,7 @@ main(){
                 NETWORK_CNI=${OPTARG}
                 ;;
             a)
-                APIHOSTS=${OPTARG}
+                APIHOST=${OPTARG}
                 ;;
             h)
                 USAGE_EXITS
@@ -199,14 +303,17 @@ main(){
     done
     check_args
     case ${COMMAND} in
-    initetcd)
+    etcd)
         init_etcd ${ETCD_HOSTS}
         ;;
-    initcontrollplane)
+    controllplane)
         init_controller ${ETCD_HOSTS}
         ;;
-    initcni)
+    network)
         init_network ${NETWORK_CNI}
+        ;;
+    haproxy)
+        init_haproxy
         ;;
     help)
         USAGE_EXITS
