@@ -251,7 +251,7 @@ status: {}
 EOF
     for HOST in ${CONTROLLER_HOSTS}
     do
-        scp /tmp/haproxy.conf ${HOST}:/etc/haproxy/haproxy.cfg
+        scp /tmp/haproxy.cfg ${HOST}:/etc/haproxy/haproxy.cfg
         scp /tmp/haproxy.yaml  ${HOST}:/etc/kubernetes/manifests/haproxy.yaml
     done
     echo 'init haproxy finished'
