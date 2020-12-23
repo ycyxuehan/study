@@ -106,6 +106,10 @@ EOF
 init_controller(){
     echo "init controller: $@"
     echo "warning: your kubelet will reset"
+    echo "backup ha pod if exists"
+    if [ -f /etc/kubernetes/manifests/haproxy.yaml ];then
+        cp /etc/kubernetes/manifests/haproxy.yaml /tmp/haproxy.yaml.backup
+    fi
     echo "creating kubeadm config file"
     ENDPOINTS="["
     for ETCD_HOST in ${ETCD_HOSTS}; do
@@ -149,6 +153,10 @@ apiServer:
   certSANs: ${APISERVERSANS}
 EOF
     kubeadm reset -f
+    echo "restore ha pod if exists"
+    if [ -f /tmp/haproxy.yaml.backup ];then
+        cp /tmp/haproxy.yaml.backup /etc/kubernetes/manifests/haproxy.yaml
+    fi
     mkdir /etc/kubernetes/pki/etcd/
     scp /tmp/$1/pki/etcd/ca.crt /etc/kubernetes/pki/etcd/ca.crt
     scp /tmp/$1/pki/apiserver-etcd-client.crt /etc/kubernetes/pki/apiserver-etcd-client.crt
@@ -170,22 +178,14 @@ init_haproxy(){
         ssh ${HOST}  "pcs cluster setup --start --name k8s_cluster ${HA_HOSTS}"
         ssh ${HOST}  "pcs cluster enable --all && pcs cluster start  --all && pcs cluster status && pcs status corosync"
         ssh ${HOST}  "pcs property set stonith-enabled=false && pcs property set no-quorum-policy=ignore && crm_verify -L -V"
-        ssh ${HOST}  "pcs resource create vip ocf:heartbeat:IPaddr2 ip=${APIHOSTS} cidr_netmask=28 op monitor interval=28s"
     done
+    ssh ${HA_HOSTS[0]}  "pcs resource create vip ocf:heartbeat:IPaddr2 ip=${APIHOSTS} cidr_netmask=28 op monitor interval=28s"
 
     echo 'write haproxy config...'
     APISERVERS=""
     INDEX=1
     PREFIX="k8smaster"
-    for HOST in ${CONTROLLER_HOSTS}
-    do
-        if [ "x${APISERVERS}" == "x" ];then
-            APISERVERS="        server ${PREFIX}${INDEX} ${HOST}:6443 weight 1 maxconn 1000 check inter 2000 rise 2 fall 3\n"
-        else
-            APISERVERS="${APISERVERS}        server ${PREFIX}${INDEX} ${HOST}:6443 weight 1 maxconn 1000 check inter 2000 rise 2 fall 3\n"
-        fi
-        INDEX=$(expr ${INDEX} + 1)
-    done
+
     cat <<EOF >/tmp/haproxy.cfg
 # /etc/haproxy/haproxy.cfg
 #---------------------------------------------------------------------
@@ -235,8 +235,11 @@ backend apiserver
     mode tcp
     option ssl-hello-chk
     balance     roundrobin
-${APISERVERS}
 EOF
+for HOST in ${HA_HOSTS}
+do
+    echo "        server ${HA_HOSTS} ${HOST}:6443 weight 1 maxconn 1000 check inter 2000 rise 2 fall 3\n" >> /tmp/haproxy.cfg
+done
 echo "write haproxy pod yaml"
 cat <<EOF >/tmp/haproxy.yaml
 apiVersion: v1
@@ -246,7 +249,7 @@ metadata:
   namespace: kube-system
 spec:
   containers:
-  - image: haproxy:2.1.4
+  - image: registry.bing89.com/dockerhub/haproxy:lts-alpine
     name: haproxy
     livenessProbe:
       failureThreshold: 8
@@ -316,10 +319,10 @@ main(){
     do
         case ${arg} in 
             e)
-                ETCD_HOSTS=${OPTARG//,/ }
+                ETCD_HOSTS=(${OPTARG//,/ })
                 ;;
             c)
-                CONTROLLER_HOSTS=${OPTARG//,/ }
+                CONTROLLER_HOSTS=(${OPTARG//,/ })
                 ;;
             n)
                 NETWORK_CNI=${OPTARG}
@@ -328,7 +331,7 @@ main(){
                 APIHOST=${OPTARG}
                 ;;
             p)
-                HA_HOSTS=${OPTARG//,/ }
+                HA_HOSTS=(${OPTARG//,/ })
                 ;;
             h)
                 USAGE_EXITS
@@ -338,6 +341,7 @@ main(){
     check_args
     case ${COMMAND} in
     etcd)
+        # echo ${ETCD_HOSTS[0]}
         init_etcd ${ETCD_HOSTS}
         ;;
     controllplane)
