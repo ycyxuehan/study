@@ -7,10 +7,10 @@ init_etcd(){
     echo "init etcd cluster: $@"
     echo "create config files..."
     kubeadm reset -f
-    if [ ! -d /etc/systemd/system/kubelet.service.d ];then
-        mkdir /etc/systemd/system/kubelet.service.d
+    if [ ! -d /tmp/kubelet.service.d ];then
+        mkdir /tmp/kubelet.service.d
     fi
-    cat << EOF > /etc/systemd/system/kubelet.service.d/20-etcd-service-manager.conf
+    cat << EOF > /tmp/kubelet.service.d/20-etcd-service-manager.conf
 [Service]
 ExecStart=
 #  Replace "systemd" with the cgroup driver of your container runtime. The default value in the kubelet is "cgroupfs".
@@ -93,7 +93,7 @@ EOF
     echo "configure etcd hosts"
     for HOST in ${@};
     do
-        scp -r /etc/systemd/system/kubelet.service.d ${HOST}:/etc/systemd/system/
+        scp -r /tmp/kubelet.service.d ${HOST}:/etc/systemd/system/
         scp -r /tmp/${HOST}/* ${HOST}:/tmp
         ssh ${HOST} "systemctl daemon-reload"
         ssh ${HOST} "kubeadm reset -f && rsync -ivhPr /tmp/pki /etc/kubernetes/"
@@ -110,6 +110,8 @@ init_controller(){
     if [ -f /etc/kubernetes/manifests/haproxy.yaml ];then
         cp /etc/kubernetes/manifests/haproxy.yaml /tmp/haproxy.yaml.backup
     fi
+
+
     echo "creating kubeadm config file"
     ENDPOINTS="["
     for ETCD_HOST in ${ETCD_HOSTS[@]}; do
@@ -136,7 +138,7 @@ apiVersion: kubeadm.k8s.io/v1beta2
 kind: InitConfiguration
 nodeRegistration:
     criSocket: /run/containerd/containerd.sock
-    name: containerd
+    name: k8smaster1
 ---
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
@@ -152,6 +154,7 @@ etcd:
 apiServer:
   certSANs: ${APISERVERSANS}
 EOF
+
     kubeadm reset -f
     echo "restore ha pod if exists"
     if [ -f /tmp/haproxy.yaml.backup ];then
