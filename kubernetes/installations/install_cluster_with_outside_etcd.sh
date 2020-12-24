@@ -48,11 +48,9 @@ EOF
             rm -rf /tmp/${HOST}/*
         fi
         cat <<EOF >/tmp/${HOST}/etcdcfg.yaml
-apiVersion: kubeadm.k8s.io/v1beta2
-kind: InitConfiguration
-nodeRegistration:
-    criSocket: /run/containerd/containerd.sock
-    name: containerd
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd
 ---
 apiVersion: "kubeadm.k8s.io/v1beta2"
 kind: ClusterConfiguration
@@ -134,11 +132,9 @@ init_controller(){
     done
     APISERVERSANS="${APISERVERSANS}]"
     cat <<EOF >/tmp/kubeadmcfg.yaml
-apiVersion: kubeadm.k8s.io/v1beta2
-kind: InitConfiguration
-nodeRegistration:
-    criSocket: /run/containerd/containerd.sock
-    name: k8smaster1
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd
 ---
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
