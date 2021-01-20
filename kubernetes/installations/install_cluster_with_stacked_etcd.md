@@ -1,0 +1,1 @@
+# 使用kubeadm安装基于堆叠etcd的kubernetes

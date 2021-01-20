@@ -7,16 +7,6 @@ init_etcd(){
     echo "init etcd cluster: $@"
     echo "create config files..."
     kubeadm reset -f
-    if [ ! -d /tmp/kubelet.service.d ];then
-        mkdir /tmp/kubelet.service.d
-    fi
-    cat << EOF > /tmp/kubelet.service.d/20-etcd-service-manager.conf
-[Service]
-ExecStart=
-#  Replace "systemd" with the cgroup driver of your container runtime. The default value in the kubelet is "cgroupfs".
-ExecStart=/usr/bin/kubelet --container-runtime=remote --container-runtime-endpoint=unix:///run/containerd/containerd.sock  --address=127.0.0.1 --pod-manifest-path=/etc/kubernetes/manifests --pod-infra-container-image=registry.bing89.com/kubernetes/pause:3.2
-Restart=always
-EOF
     if [[ -f etc/kubernetes/pki/etcd/ca.crt ]] && [[ -f etc/kubernetes/pki/etcd/ca.key ]];then
         echo 'using exists key.'
     else
@@ -59,12 +49,8 @@ etcd:
     local:
         serverCertSANs:
         - "${HOST}"
-        - "${APIHOST}"
-        - "$1"
         peerCertSANs:
         - "${HOST}"
-        - "${APIHOST}"
-        - "$1"
         extraArgs:
             initial-cluster: ${INIT_CLUSTERS}
             initial-cluster-state: new
