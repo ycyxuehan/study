@@ -103,6 +103,8 @@ spec:
           mountPath: /tmp
       nodeSelector:
         kubernetes.io/os: linux
+      imagePullSecrets:
+        - name: registry-bing89
 ---
 apiVersion: v1
 kind: Service
