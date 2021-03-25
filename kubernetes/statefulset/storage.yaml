@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mypv
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle
+  storageClassName: demosc
+  mountOptions:
+    - hard
+    - nfsvers=4.1
+  nfs:
+    path: /data1/nfs
+    server: 192.168.0.31
+
+---
+kind: StorageClass
+apiVersion: v1
+metadata:
+  name: demosc

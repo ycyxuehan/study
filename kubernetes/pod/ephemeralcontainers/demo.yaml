@@ -1,0 +1,11 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: mypod
+  namespace: study
+  labels:
+    foo: bar
+spec:
+  containers:
+  - name: pause
+    image: registry.cn-shenzhen.aliyuncs.com/bingk8s/pause:3.2
