@@ -50,21 +50,24 @@ func consumer(ctx context.Context)error{
 	fmt.Println(partitionList)
 
 	for _, partition := range partitionList {
-		pc, err := consumer.ConsumePartition("test", partition, sarama.OffsetNewest)
-		if err != nil {
-			return err
-		}
-		defer pc.AsyncClose()
-		go func(){
+		go func(p int32){
+			pc, err := consumer.ConsumePartition("test", p, sarama.OffsetNewest)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			defer pc.AsyncClose()
 			for {
 				select {
 				case msg := <- pc.Messages():
-					fmt.Printf("partition: %d, offset: %d, key: %v, value: %v", msg.Partition, msg.Offset, msg.Key, msg.Value)
+					if msg != nil {
+						fmt.Printf("partition: %d, offset: %d, key: %v, value: %v", msg.Partition, msg.Offset, msg.Key, msg.Value)
+					}
 				case <- ctx.Done():
 					return
 				}
 			}
-		}()
+		}(partition)
 	}
 	return nil
 }
