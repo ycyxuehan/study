@@ -90,7 +90,7 @@ func main() {
 		}
 		return
 	case c||runMode == "Consumer":
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
 		defer cancel()
 		err := consumer(ctx)
 		if err != nil {
