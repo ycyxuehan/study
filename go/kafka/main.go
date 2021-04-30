@@ -52,22 +52,17 @@ func consumer(ctx context.Context)error{
 	msgChan := make(chan *sarama.ConsumerMessage)
 
 	for _, partition := range partitionList {
-		go func(p int32){
-			pc, err := consumer.ConsumePartition("test", p, sarama.OffsetNewest)
-			if err != nil {
-				log.Println(err)
-				return
+		pc, err := consumer.ConsumePartition("test", partition, sarama.OffsetNewest)
+		if err != nil {
+			log.Println(err)
+		}
+		defer pc.AsyncClose()
+		go func(){
+			for msg := range pc.Messages(){				
+				fmt.Println("recieve a message, send it")
+				msgChan <- msg
 			}
-			defer pc.AsyncClose()
-			for {
-				select {
-				case msg := <- pc.Messages():
-					msgChan <- msg
-				case <- ctx.Done():
-					return
-				}
-			}
-		}(partition)
+		}()
 	}
 	for {
 		select{
