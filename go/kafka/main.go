@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/Shopify/sarama"
 )
@@ -19,7 +21,7 @@ func producer()error{
 	msg.Topic = "test"
 	msg.Value = sarama.StringEncoder("this is a test message")
 
-	client, err := sarama.NewSyncProducer([]string{"192.168.0.31:30092"}, config)
+	client, err := sarama.NewSyncProducer([]string{"kafka-svc.study.svc:9092"}, config)
 	if err != nil {
 		return err
 	}
@@ -34,8 +36,8 @@ func producer()error{
 	return nil
 }
 
-func consumer()error{
-	consumer, err := sarama.NewConsumer([]string{"192.168.0.31:9092"}, nil)
+func consumer(ctx context.Context)error{
+	consumer, err := sarama.NewConsumer([]string{"kafka-svc.study.svc:9092"}, nil)
 	if err != nil {
 		return err
 	}
@@ -54,8 +56,13 @@ func consumer()error{
 		}
 		defer pc.AsyncClose()
 		go func(){
-			for msg := range pc.Messages() {
-				fmt.Printf("partition: %d, offset: %d, key: %v, value: %v", msg.Partition, msg.Offset, msg.Key, msg.Value)
+			for {
+				select {
+				case msg := <- pc.Messages():
+					fmt.Printf("partition: %d, offset: %d, key: %v, value: %v", msg.Partition, msg.Offset, msg.Key, msg.Value)
+				case <- ctx.Done():
+					return
+				}
 			}
 		}()
 	}
@@ -76,10 +83,13 @@ func main() {
 		}
 		return
 	case c||runMode == "Consumer":
-		err := consumer()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		err := consumer(ctx)
 		if err != nil {
 			log.Fatal(err)
 		}
+		time.Sleep(10 * time.Second)
 		return
 	}
 }
