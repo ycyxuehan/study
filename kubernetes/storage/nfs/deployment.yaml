@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-client-provisioner
+  labels:
+    app: nfs-client-provisioner
+  # namespace: storageclass  #与RBAC文件中的namespace保持一致
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nfs-client-provisioner
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: nfs-client-provisioner
+    spec:
+      serviceAccountName: nfs-client-provisioner
+      containers:
+        - name: nfs-client-provisioner
+          image: docker.in.zwxict.com/official/kubesphere/nfs-client-provisioner:v3.1.0-k8s1.11
+          volumeMounts:
+            - name: nfs-client-root
+              mountPath: /persistentvolumes
+          env:
+            - name: PROVISIONER_NAME
+              value: pub-nfs-storage  #provisioner名称,请确保该名称与 nfs-StorageClass.yaml文件中的provisioner名称保持一致
+            - name: NFS_SERVER
+              value: nfs-server.svc
+            - name: NFS_PATH
+              value: /data1/nfs    #NFS挂载卷
+      volumes:
+        - name: nfs-client-root
+          nfs:
+            server: nfs-server.svc  #NFS Server IP地址
+            path: /data1/nfs     #NFS 挂载卷

@@ -1,0 +1,23 @@
+syntax = "proto3";
+option go_package = "chat/;chat";
+package chat;
+
+message Message {
+    string content = 1;
+    string from = 2;
+    string to = 3;
+}
+
+message User {
+    string name = 1;
+    string ip = 2;
+}
+
+message Result{
+    bool res = 1;
+}
+
+service ChatService {
+    rpc Channel(stream Message)returns(stream Message);
+    rpc Register(User)returns(Result);
+}
