@@ -49,6 +49,8 @@ func consumer(ctx context.Context)error{
 	}
 	fmt.Println(partitionList)
 
+	msgChan := make(chan *sarama.ConsumerMessage)
+
 	for _, partition := range partitionList {
 		go func(p int32){
 			pc, err := consumer.ConsumePartition("test", p, sarama.OffsetNewest)
@@ -60,16 +62,23 @@ func consumer(ctx context.Context)error{
 			for {
 				select {
 				case msg := <- pc.Messages():
-					if msg != nil {
-						fmt.Printf("partition: %d, offset: %d, key: %v, value: %v", msg.Partition, msg.Offset, msg.Key, msg.Value)
-					}
+					msgChan <- msg
 				case <- ctx.Done():
 					return
 				}
 			}
 		}(partition)
 	}
-	return nil
+	for {
+		select{
+		case msg := <- msgChan:
+			if msg != nil {
+				fmt.Printf("partition: %d, offset: %d, key: %v, value: %v", msg.Partition, msg.Offset, msg.Key, msg.Value)
+			}
+		case <- ctx.Done():
+			return nil
+		}
+	}
 }
 
 func main() {
