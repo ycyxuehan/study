@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: remotedev
+spec:
+  selector:
+    matchLabels:
+      app: remotedev
+  serviceName: remotedev
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: remotedev
+    spec:
+      containers:
+      - name: remotedev
+        image: registry.bing89.com/study/golang:1.16-remote
+        resources:
+          limits:
+            memory: "8Gi"
+            cpu: "2"
+          requests:
+            memory: "256Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 22
+          name: ssh
+        - containerPort: 8080
+          name: http1
+        - containerPort: 8080
+          name: http2
+        volumeMounts:
+          - mountPath: /git
+            name: gitlab
+      nodeSelector:
+        develop: "true"
+      imagePullSecrets:
+        - name: myregistry
+  volumeClaimTemplates:
+  - metadata:
+      name: gitlab
+      namespace: study
+    spec:
+      accessModes: ["ReadWriteMany"]
+      storageClassName: managed-nfs-storage
+      resources:
+        requests:
+          storage: 10Gi
