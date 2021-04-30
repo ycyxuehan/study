@@ -6,10 +6,43 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/Shopify/sarama"
 )
+
+// Consumer represents a Sarama consumer group consumer
+type Consumer struct {
+	ready chan bool
+}
+
+// Setup is run at the beginning of a new session, before ConsumeClaim
+func (consumer *Consumer) Setup(sarama.ConsumerGroupSession) error {
+	// Mark the consumer as ready
+	close(consumer.ready)
+	return nil
+}
+
+// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
+func (consumer *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
+	return nil
+}
+
+// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
+func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+
+	// NOTE:
+	// Do not move the code below to a goroutine.
+	// The `ConsumeClaim` itself is called within a goroutine, see:
+	// https://github.com/Shopify/sarama/blob/master/consumer_group.go#L27-L29
+	for message := range claim.Messages() {
+		log.Printf("Message claimed: value = %s, timestamp = %v, topic = %s", string(message.Value), message.Timestamp, message.Topic)
+		session.MarkMessage(message, "")
+	}
+
+	return nil
+}
 
 func producer()error{
 	config := sarama.NewConfig()
@@ -36,44 +69,34 @@ func producer()error{
 	return nil
 }
 
+//fmt.Printf("partition: %d, offset: %d, key: %v, value: %v", msg.Partition, msg.Offset, msg.Key, msg.Value)
+
 func consumer(ctx context.Context)error{
-	consumer, err := sarama.NewConsumer([]string{"kafka-svc.study.svc:9092"}, nil)
+	client, err := sarama.NewConsumerGroup([]string{"kafka-svc.study.svc:9092"}, "group1",  &sarama.Config{})
 	if err != nil {
 		return err
 	}
-	defer consumer.Close()
-
-	partitionList, err := consumer.Partitions("test")
-	if err != nil {
-		return err
+	defer client.Close()
+	consumer := Consumer{
+		ready: make(chan bool),
 	}
-	fmt.Println(partitionList)
-
-	msgChan := make(chan *sarama.ConsumerMessage)
-
-	for _, partition := range partitionList {
-		pc, err := consumer.ConsumePartition("test", partition, sarama.OffsetNewest)
-		if err != nil {
-			log.Println(err)
-		}
-		defer pc.AsyncClose()
-		go func(){
-			for msg := range pc.Messages(){				
-				fmt.Println("recieve a message, send it")
-				msgChan <- msg
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func(){
+		defer wg.Done()
+		for {
+			if err := client.Consume(ctx, []string{"test"}, &consumer); err != nil {
+				log.Fatal(err)
 			}
-		}()
-	}
-	for {
-		select{
-		case msg := <- msgChan:
-			if msg != nil {
-				fmt.Printf("partition: %d, offset: %d, key: %v, value: %v", msg.Partition, msg.Offset, msg.Key, msg.Value)
+			if ctx.Err() != nil {
+				return
 			}
-		case <- ctx.Done():
-			return nil
+			consumer.ready = make(chan bool)
 		}
-	}
+	}()
+	<- consumer.ready
+	wg.Wait()
+	return nil
 }
 
 func main() {
@@ -96,7 +119,6 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		time.Sleep(10 * time.Second)
 		return
 	}
 }
