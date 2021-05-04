@@ -72,7 +72,9 @@ func producer()error{
 //fmt.Printf("partition: %d, offset: %d, key: %v, value: %v", msg.Partition, msg.Offset, msg.Key, msg.Value)
 
 func consumer(ctx context.Context)error{
-	client, err := sarama.NewConsumerGroup([]string{"kafka-svc.study.svc:9092"}, "group1",  &sarama.Config{})
+	config := sarama.NewConfig()
+
+	client, err := sarama.NewConsumerGroup([]string{"kafka-svc.study.svc:9092"}, "group1",  config)
 	if err != nil {
 		return err
 	}

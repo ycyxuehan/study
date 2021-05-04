@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remotedev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remotedev
+  template:
+    metadata:
+      labels:
+        app: remotedev
+    spec:
+      containers:
+      - name: remotedev
+        image: golang:1.16
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        command:
+          - "sleep"
+          - "1314000"
+        env:
+        - name: GOPROXY
+          value: https://goproxy.cn
+        workingDir: "/git"
+        ports:
+        - containerPort: 8080
+          name: http
+        volumeMounts:
+          - mountPath: /git
+            name: git
+      volumes:
+        - name: git
+          hostPath:
+            path: /home/kun1h/git
+      nodeSelector:
+        develop: "true"
