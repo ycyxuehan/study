@@ -1,0 +1,132 @@
+syntax = "proto3";
+go_package = ".;plot";
+package = "plot";
+
+//磁盘媒体类型， 固态硬盘SSD和机械硬盘HDD
+enum DiskMediaType {
+    SSD = 0;
+    HDD = 1;
+}
+
+//卷状态 卷的状态信息
+message VolumeStatus {
+    uint64 Total = 1;
+    uint64 Used = 2;
+}
+
+//卷 保存卷信息
+message Volume {
+    string Name = 1;
+    string Path = 2;
+    DiskMediaType MediaType = 3;
+    VolumeStatus Status = 4;
+}
+
+//节点状态，在线和离线
+enum NodeState {
+    Offline = 0;
+    Online = 1;
+}
+
+//节点状态
+message NodeStatus {
+    NodeState State = 0;
+    repeated uint64 RunningJob = 1;
+}
+
+//节点
+message Node {
+    string Name = 1;
+    string IP  = 2;
+    uint32 CPU = 3;
+    uint64 Memory = 4;
+    repeated Volume CacheVolumeList = 5;
+    repeated Volume PlotVolumeList = 6;
+    NodeStatus Status = 7;
+}
+
+//节点列表
+message NodeList {
+    repeated Node Items = 1;
+}
+
+//任务阶段，非plot阶段
+enum JobPhase {
+    Created = 0;
+    Scheduled = 1;
+    Running = 2;
+    Succeed = 3;
+}
+
+//任务状态
+message JobStatus {
+    JobPhase Phase = 1;
+    int32 Progress = 2;
+    string Node = 3;
+}
+
+//任务资源 为任务分配资源
+message JobResource {
+    uint32 CPU = 1;
+    uint64 Memory = 2;
+    uint64 CacheSize = 3;
+    uint64 PlotSize = 4;
+}
+
+//任务规约
+message JobSpec {
+    uint32 K = 1;
+    uint32 Bucket = 2;
+    uint32 Fingerprint = 3;
+    string Cache1 = 4;
+    string Cache2 = 5;
+    string Plot = 6;
+    JobResource Resource = 7;
+}
+
+//任务
+message Job {
+    string Name = 1;
+    JobSpec Spec = 2;
+    JobStatus Status = 3;
+}
+
+//任务列表
+message JobList {
+    repeated Job Items = 1;
+}
+
+//响应信息，通用
+message Response {
+    int32 Code = 1;
+    string Message = 2;
+}
+
+//任务筛选，用于查询
+message JobFilter {
+    bool Scheduled = 1;
+    bool Succeed = 2;
+}
+
+//plot容量，用于添加任务，添加多少容量的plot，后台自动创建足够容量的任务
+message PlotCapacity {
+    uint64 Size = 1;
+    repeated uint32 K = 2;
+}
+
+//调度器
+service Scheduler {
+    rpc Registe(Node)returns(Response);                     //注册节点
+    rpc UpdateJobStatus(JobStatus)returns(Response);        //更新任务状态
+    rpc UpdateNodeStatus(NodeStatus)returns(Response);      //更新节点状态
+    rpc NodeList()returns(NodeList);                        //获取节点列表
+    rpc JobList(JobFilter)returns(JobList);                 //获取任务列表
+    rpc AddJob(PlotCapacity)returns(Response);              //添加任务
+}
+
+//节点
+service Node {
+    rpc HeartBeat()returns(NodeStatus);                     //心跳检测
+    rpc AllocateJob(Job)returns(Response);                  //分配任务
+    rpc KillJob(Job)returns(Response);                      //停止一个任务
+}
