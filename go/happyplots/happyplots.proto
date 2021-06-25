@@ -1,6 +1,6 @@
 syntax = "proto3";
-go_package = ".;plot";
-package = "plot";
+option go_package = "plot/;plot";
+package plot;
 
 //磁盘媒体类型， 固态硬盘SSD和机械硬盘HDD
 enum DiskMediaType {
@@ -30,8 +30,11 @@ enum NodeState {
 
 //节点状态
 message NodeStatus {
-    NodeState State = 0;
-    repeated uint64 RunningJob = 1;
+    NodeState State = 1;
+    repeated uint64 RunningJob = 2;
+    bool Registed = 3;
+    uint64 RegistedAt = 4;
+    uint64 UpdatedAt = 5;
 }
 
 //节点
@@ -40,8 +43,8 @@ message Node {
     string IP  = 2;
     uint32 CPU = 3;
     uint64 Memory = 4;
-    repeated Volume CacheVolumeList = 5;
-    repeated Volume PlotVolumeList = 6;
+    repeated Volume CacheVolumes = 5;
+    repeated Volume PlotVolumes = 6;
     NodeStatus Status = 7;
 }
 
@@ -114,19 +117,24 @@ message PlotCapacity {
     repeated uint32 K = 2;
 }
 
+//标准请求信息
+message Request{
+    string Name = 1;
+}
+
 //调度器
 service Scheduler {
     rpc Registe(Node)returns(Response);                     //注册节点
-    rpc UpdateJobStatus(JobStatus)returns(Response);        //更新任务状态
-    rpc UpdateNodeStatus(NodeStatus)returns(Response);      //更新节点状态
-    rpc NodeList()returns(NodeList);                        //获取节点列表
-    rpc JobList(JobFilter)returns(JobList);                 //获取任务列表
+    rpc UpdateJobStatus(Job)returns(Response);        //更新任务状态
+    rpc UpdateNodeStatus(Node)returns(Response);      //更新节点状态
+    rpc Nodes(Request)returns(NodeList);                        //获取节点列表
+    rpc Jobs(JobFilter)returns(JobList);                 //获取任务列表
     rpc AddJob(PlotCapacity)returns(Response);              //添加任务
 }
 
 //节点
-service Node {
-    rpc HeartBeat()returns(NodeStatus);                     //心跳检测
+service NodeService {
+    rpc HeartBeat(Request)returns(NodeStatus);                     //心跳检测
     rpc AllocateJob(Job)returns(Response);                  //分配任务
     rpc KillJob(Job)returns(Response);                      //停止一个任务
 }
