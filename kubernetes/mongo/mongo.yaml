@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo
+  namespace: base-service
+data:
+  mongo.conf: |
+    systemLog:
+      destination: file
+      path: "/var/log/mongo/mongod.log"
+      logAppend: true
+    storage:
+      journal:
+        enabled: true
+      dbPath: /data/db
+      wiredTiger:
+        engineConfig:
+          cacheSizeGB: 1
+    security:
+      authorization: "disabled"
+    #replication:
+    #   replSetName: intbee0
+    #   oplogSizeMB: 2048
+    net:
+      bindIp: 0.0.0.0
+      port: 27017
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  namespace: base-service
+  labels:
+    app: mongo
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: mongo
+    version: "3.6"
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-pub
+  namespace: base-service
+spec:
+  selector:
+    app: mongo
+    version: "3.6"
+  ports:
+  - port: 27017
+    targetPort: 27017
+    nodePort: 32017
+  type: NodePort
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo
+  namespace: base-service
+spec:
+  selector:
+    matchLabels:
+      app: mongo
+      version: "3.6"
+  serviceName: "mongo"
+  replicas: 1
+  podManagementPolicy: Parallel
+  template:
+    metadata:
+      labels:
+        app: mongo
+        version: "3.6"
+    spec:
+      terminationGracePeriodSeconds: 10
+      affinity:
+         podAntiAffinity:
+           requiredDuringSchedulingIgnoredDuringExecution:
+           - labelSelector:
+               matchExpressions:
+               - key: "app"
+                 operator: In
+                 values:
+                 - "mongo"
+             topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: mongo
+        image: mongo:3.6
+        args:
+        - "--config"
+        - "/etc/mongo/mongo.conf"
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: data
+          mountPath: /data/db
+        - name: conf
+          mountPath: /etc/mongo/mongo.conf
+          subPath: mongo.conf
+        - name: log
+          mountPath: /var/log/mongo
+        resources:
+          requests:
+            memory: 2Gi
+          limits:
+            memory: 3Gi
+      volumes:
+      - name: data
+        hostPath:
+          path: /www/data/mongo
+      - name: conf
+        configMap:
+          name: mongo
+      nodeSelector:
+        ssd: "true"
+  volumeClaimTemplates:
+  - metadata:
+      name: log
+      namespace: base-service
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: alinas
