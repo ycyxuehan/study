@@ -1,0 +1,204 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch
+  namespace: base-service
+data:
+  elasticsearch.yml: |
+    cluster.name: intbee
+    node.name: "${POD_NAME}"
+    #cluster.initial_master_nodes: elasticsearch-0,elasticsearch-1,elasticsearch-2
+    #discovery.seed_hosts: elasticsearch-0.elasticsearch, elasticsearch-1.elasticsearch,elasticsearch-2.elasticsearch
+    # bootstrap.memory_lock: true
+    network.host: "${POD_NAME}"
+    http.bind_host: "${POD_NAME}"
+    #transport.port: 9300
+    #http.port: 9200
+  hanlp.properties: |
+    # Root path of data
+    root=plugins/analysis-hanlp/
+    # Core dictionary path
+    CoreDictionaryPath=data/dictionary/CoreNatureDictionary.txt
+    # Bigram dictionary path
+    BiGramDictionaryPath=data/dictionary/CoreNatureDictionary.ngram.txt
+    # Core stop word dictionary path
+    CoreStopWordDictionaryPath=data/dictionary/stopwords.txt
+    # Core synonym dictionary path
+    CoreSynonymDictionaryDictionaryPath=data/dictionary/synonym/CoreSynonym.txt
+    # Person name dictionary path
+    PersonDictionaryPath=data/dictionary/person/nr.txt
+    # Person name dictionary tr path
+    PersonDictionaryTrPath=data/dictionary/person/nr.tr.txt
+    # Tc dictionary root path
+    tcDictionaryRoot=data/dictionary/tc
+    # Custom dictinary path
+    CustomDictionaryPath=data/dictionary/custom/CustomDictionary.txt; ModernChineseSupplementaryWord.txt; ChinesePlaceName.txt ns; PersonalName.txt; OrganizationName.txt; ShanghaiPlaceName.txt ns;data/dictionary/person/nrf.txt nrf;
+    # CRF segment model path
+    #CRFSegmentModelPath=data/model/segment/CRFSegmentModel.txt
+    # HMM segment model path
+    #HMMSegmentModelPath=data/model/segment/HMMSegmentModel.bin
+    # True of false show term nature
+    #ShowTermNature=true
+    # IO Adapter
+    ##IOAdapter=com.hankcs.hanlp.corpus.io.FileIOAdapter
+  hanlp-remote.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+    <properties>
+        <comment>HanLP Analyzer 扩展配置</comment>
+
+        <!--用户可以在这里配置远程扩展字典 -->
+        <!--<entry key="remote_ext_dict">words_location</entry>-->
+
+        <!--用户可以在这里配置远程扩展停止词字典-->
+        <!--<entry key="remote_ext_stopwords">stop_words_location</entry>-->
+    </properties>
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: base-service
+  labels:
+    app: elasticsearch
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+  - name: tcp
+    port: 9300
+    protocol: TCP
+  - name: http
+    port: 9200
+    protocol: TCP
+  clusterIP: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-node
+  namespace: base-service
+  labels:
+    app: elasticsearch
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+  - name: tcp
+    port: 9300
+    protocol: TCP
+    nodePort: 30930
+  - name: http
+    port: 9200
+    protocol: TCP
+    nodePort: 30920
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: elasticsearch
+  name: elasticsearch
+  namespace: base-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  serviceName: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      initContainers:
+      - name: sysctl
+        securityContext:
+          privileged: true
+        command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144 && chown 1000 /usr/share/elasticsearch/data']
+        image: registry-vpc.cn-shenzhen.aliyuncs.com/nesting/elasticsearch:6.5.4
+        volumeMounts:
+        - mountPath: /usr/share/elasticsearch/data
+          name: data
+      containers:
+      - env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: registry-vpc.cn-shenzhen.aliyuncs.com/nesting/elasticsearch:6.5.4
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - echo this is for download custome dic for hanlp
+        name: elasticsearch
+        resources:
+          limits:
+            cpu: 500m
+            memory: 4Gi
+          requests:
+            cpu: 500m
+            memory: 4Gi
+        volumeMounts:
+        - mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+          name: elasticsearch-config
+          subPath: elasticsearch.yml
+        - mountPath: /usr/share/elasticsearch/logs
+          name: log
+        - mountPath: /usr/share/elasticsearch/data
+          name: data
+        - mountPath: /usr/share/elasticsearch/config/analysis-hanlp/hanlp.properties
+          name: hanlp-local-dict
+          subPath: hanlp.properties
+        - mountPath: /usr/share/elasticsearch/config/analysis-hanlp/hanlp-remote.xml
+          name: hanlp-remote-dict
+          subPath: hanlp-remote.xml          
+        - name: custom-dictinary
+          mountPath:  /usr/share/elasticsearch/plugins/analysis-hanlp/data/dictionary/custom
+      nodeSelector:
+        ssd: "true"
+      volumes:
+      - configMap:
+          name: elasticsearch
+        name: elasticsearch-config
+      - name: data
+        hostPath:
+          path: /www/data/elasticsearch
+          type: Directory
+      - name: hanlp-local-dict
+        configMap:
+          name: elasticsearch
+      - name: hanlp-remote-dict
+        configMap:
+          name: elasticsearch
+  volumeClaimTemplates:
+  - metadata:
+      name: log
+    spec:
+      accessModes:
+      - ReadWriteMany
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: alinas
+  - metadata:
+      name: custom-dictinary
+    spec:
+      accessModes:
+      - ReadWriteMany
+      resources:
+        requests:
+          storage: 512Mi
+      storageClassName: alinas  

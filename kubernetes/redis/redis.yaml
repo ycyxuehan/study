@@ -1,0 +1,151 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis
+  namespace: base-service
+data:
+  redis.conf: |
+    protected-mode no
+    port 6379
+    tcp-backlog 511
+    timeout 0
+    tcp-keepalive 20
+    daemonize no
+    supervised no
+    pidfile /var/run/redis_6379.pid
+    loglevel notice
+    logfile "/data/redis.log"
+    databases 32
+    save 900 1
+    save 300 10
+    save 60 10000
+    stop-writes-on-bgsave-error no
+    rdbcompression yes
+    rdbchecksum yes
+    dbfilename dump.rdb
+    dir /data
+    #slave-serve-stale-data yes
+    #slave-read-only yes
+    repl-diskless-sync no
+    repl-diskless-sync-delay 5
+    repl-disable-tcp-nodelay no
+    #slave-priority 100
+    #requirepass tlzFhHHj8sm4yYHn1lzKrPNqBKo7OS6F
+    requirepass intbee@test
+    appendonly yes
+    appendfilename "appendonly.aof"
+    appendfsync everysec
+    no-appendfsync-on-rewrite no
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+    aof-load-truncated yes
+    lua-time-limit 5000
+    slowlog-log-slower-than 1000
+    slowlog-max-len 10240
+    latency-monitor-threshold 0
+    notify-keyspace-events ""
+    hash-max-ziplist-entries 512
+    hash-max-ziplist-value 64
+    list-max-ziplist-size -2
+    list-compress-depth 0
+    set-max-intset-entries 512
+    zset-max-ziplist-entries 128
+    zset-max-ziplist-value 64
+    hll-sparse-max-bytes 3000
+    activerehashing yes
+    client-output-buffer-limit normal 0 0 0
+    client-output-buffer-limit slave 256mb 64mb 60
+    client-output-buffer-limit pubsub 32mb 8mb 60
+    hz 10
+    aof-rewrite-incremental-fsync yes
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: base-service
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-pub
+spec:
+  selector:
+    app: myapp
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 32379
+  type: NodePort
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-app
+  namespace: base-service
+spec:
+  serviceName: "redis"
+  selector:
+    matchLabels:
+      app: redis
+  replicas: 6
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      terminationGracePeriodSeconds: 20
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - redis
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: redis
+        image: redis
+        command:
+          - "redis-server"
+        args:
+          - "/etc/redis/redis.conf"
+        resources:
+          requests:
+            memory: "512Mi"
+        ports:
+        - name: redis
+          containerPort: 6379
+          protocol: "TCP"
+        volumeMounts:
+          - name: "conf"
+            mountPath: "/etc/redis"
+          - name: "data"
+            mountPath: "/var/lib/redis"
+      volumes:
+      - name: "conf"
+        configMap:
+          name: "redis"
+          items:
+            - key: "redis.conf"
+              path: "redis.conf"
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteMany" ]
+      resources:
+        requests:
+          storage: 512Mi
+      storageClassName: alinas

@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nacos
+data:
+  custom.properties: |
+    #spring.security.enabled=false
+    #management.security=false
+    #security.basic.enabled=false
+    #nacos.security.ignore.urls=/**
+    #management.metrics.export.elastic.host=http://localhost:9200
+    # metrics for prometheus
+    management.endpoints.web.exposure.include=*
+
+    # metrics for elastic search
+    #management.metrics.export.elastic.enabled=false
+    #management.metrics.export.elastic.host=http://localhost:9200
+
+    # metrics for influx
+    #management.metrics.export.influx.enabled=false
+    #management.metrics.export.influx.db=springboot
+    #management.metrics.export.influx.uri=http://localhost:8086
+    #management.metrics.export.influx.auto-create-db=true
+    #management.metrics.export.influx.consistency=one
+    #management.metrics.export.influx.compressed=true
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nacos
+  namespace: base-service
+spec:
+  selector:
+    app: nacos
+  ports:
+  - port: 8848
+    name: http
+    targetPort: 8848
+  - port: 9555
+    name: p9555
+    targetPort: 9555
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nacos-pub
+spec:
+  selector:
+    app: nacos
+  ports:
+  - port: 8848
+    name: http
+    targetPort: 8848
+    nodePort: 32048
+  type: NodePort
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nacos
+  namespace: base-service
+type: Opaque
+stringData:
+  mysql-pass: nacos2021
+  mysql-user: nacos
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nacos
+spec:
+  resources:
+    requests:
+      storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: alinas
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nacos
+  namespace: base-service
+spec:
+  selector:
+    matchLabels:
+      app: nacos
+  template:
+    metadata:
+      labels:
+        app: nacos
+    spec:
+      containers:
+      - name: nacos
+        image: nacos/nacos-server:1.4.2
+        resources:
+          requests:
+            memory: 1Gi
+          limits:
+            memory: 2Gi
+            cpu: 500m
+        env:
+          - name: MYSQL_MASTER_SERVICE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: mysql-pass
+                name: nacos
+          - name: MYSQL_MASTER_SERVICE_HOST
+            value: mysql.svc
+          - name: MODE
+            value: standalone
+          - name: MYSQL_MASTER_SERVICE_DB_NAME
+            value: nacos
+          - name: MYSQL_MASTER_SERVICE_USER
+            valueFrom:
+              secretKeyRef:
+                key: mysql-user
+                name: nacos
+          - name: MYSQL_MASTER_SERVICE_PORT
+            value: "3306"
+          - name: JVM_XMS
+            value: 1g
+          - name: JVM_XMX
+            value: 1g
+          - name: TIME_ZONE
+            value: Asia/Shanghai
+        ports:
+        - containerPort: 8848
+          name: http
+        - containerPort: 9555
+          name: p9555
+        volumeMounts:
+        - mountPath: /home/nacos/logs
+          name: log
+        - name: properties
+          mountPath: /home/nacos/init.d/custom.properties
+          subPath: custom.properties
+      volumes:
+        - name: properties
+          configMap:
+            name: nacos
+        - name: log
+          persistentVolumeClaim:
+            claimName: nacos
