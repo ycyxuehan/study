@@ -1,0 +1,30 @@
+syntax = "proto3";
+option go_package = "gorpc/;gorpc";
+package rpcgopython;
+
+message Message{
+    string content = 1;
+    string from = 2;
+    string to = 3;
+    uint64 createdAt = 4;
+}
+
+message User {
+    string name = 1;
+    string ip = 2;
+    uint64 createdAt = 3;
+}
+
+message Result{
+    bool res = 1;
+    string error = 2;
+    uint64 createdAt = 3;
+}
+
+service GatewayService {
+    rpc Register(User)returns(Result);
+}
+
+service HelloService{
+    rpc Hello(Message)returns(Result);
+}
