@@ -36,3 +36,5 @@ spec:
           nfs:
             server: nfs-server.svc  #NFS Server IP地址
             path: /data1/nfs     #NFS 挂载卷
+      nodeSelector:
+        ssd: "true"

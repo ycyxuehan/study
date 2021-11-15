@@ -1,0 +1,16 @@
+syntax = "proto3";
+go_package = ".;mongorsync";
+package = "mongorsync";
+
+//消息
+message Message  {
+    string Key = 1;
+    bytes Data = 2;
+}
+
+
+//Response
+message Response {
+    string Key = 1;
+    string ObjectID = 2;
+}
